@@ -32,9 +32,9 @@ Telegram交流反馈群组: https://t.me/eooceu
 
 | 变量名 | 描述 | 默认值 | 示例 |
 |--------|------|--------|------|
-| `UUID` / `AUTH` / `uuid` | 用户UUID | `5dc15e15-f285-4a9d-959b-0e4fbdd77b63` | `your-uuid-here` |
-| `PROXYIP` / `proxyip` / `proxyIP` | 代理服务器IP列表 | `13.230.34.30` | `ip1,ip2,ip3` |
-| `SUB_PATH` / `subpath` | 订阅路径 | `link` | `sub` |
+| `UUID`或`AUTH`或`uuid` | 用户UUID | `5dc15e15-f285-4a9d-959b-0e4fbdd77b63` | `your-uuid` |
+| `PROXYIP`或`proxyip`或`proxyIP` | 代理服务器IP列表 | `13.230.34.30` | `tw.tp81.netlib.re` |
+| `SUB_PATH`或`subpath` | 订阅路径 | `link` | `sub` |
 
 ## 部署步骤
 
