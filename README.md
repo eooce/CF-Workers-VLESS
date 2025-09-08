@@ -4,7 +4,7 @@
 
 # CF-Workers-VLESS
 
-[中文](README.md) | [English](README_EN.md)
+**中文** | [English](README_EN.md)
 
 Telegram交流反馈群组: https://t.me/eooceu
 
