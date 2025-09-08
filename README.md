@@ -62,4 +62,4 @@ Telegram交流反馈群组: https://t.me/eooceu
 
 ## 许可证
 
-MIT License
+GPL 2.0
