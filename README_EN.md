@@ -63,4 +63,4 @@ High-performance VLESS proxy service based on Cloudflare Workers
 
 ## License
 
-MIT License
+GPL 2.0
