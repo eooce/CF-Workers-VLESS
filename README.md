@@ -1,6 +1,8 @@
-# CF-Workers-VLESS
+
 
 <div align="center">
+
+# CF-Workers-VLESS
 
 [中文](README.md) | [English](README_EN.md)
 
@@ -61,5 +63,3 @@ Telegram交流反馈群组: https://t.me/eooceu
 ## 许可证
 
 MIT License
-
-- GitHub Issues: [https://github.com/eooce/CF-Worker-VLESS/issues](https://github.com/eooce/CF-Worker-VLESS/issues)
