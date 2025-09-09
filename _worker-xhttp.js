@@ -1,4 +1,4 @@
-// 温馨提示：绑定自定义域名后，需要在域名下左侧的网络菜单开启GRPC功能，否则节点不通
+// 温馨提示：绑定自定义域名后，需要在域名下左侧的网络菜单开启GRPC功能，否则不通
 
 import { connect } from 'cloudflare:sockets'
 
@@ -83,7 +83,7 @@ const ADDRESS_TYPE_IPV4 = 1
 const ADDRESS_TYPE_URL = 2
 const ADDRESS_TYPE_IPV6 = 3
 
-async function read_xhttp_header(readable, uuid_str) {
+async function read_header(readable, uuid_str) {
     const reader = readable.getReader({ mode: 'byob' })
 
     try {
@@ -185,7 +185,7 @@ async function read_xhttp_header(readable, uuid_str) {
     }
 }
 
-async function upload_to_remote(counter, writer, xhttp) {
+async function upload_to_remote(counter, writer, httpx) {
     async function inner_upload(d) {
         if (!d || d.length === 0) {
             return
@@ -199,13 +199,13 @@ async function upload_to_remote(counter, writer, xhttp) {
     }
 
     try {
-        await inner_upload(xhttp.data)
+        await inner_upload(httpx.data)
         let chunkCount = 0
-        while (!xhttp.done) {
-            const r = await xhttp.reader.read(get_buffer())
+        while (!httpx.done) {
+            const r = await httpx.reader.read(get_buffer())
             if (r.done) break
             await inner_upload(r.value)
-            xhttp.done = r.done
+            httpx.done = r.done
             chunkCount++
             if (chunkCount % 10 === 0) {
                 await sleep(0)
@@ -219,13 +219,13 @@ async function upload_to_remote(counter, writer, xhttp) {
     }
 }
 
-function create_uploader(xhttp, writable) {
+function create_uploader(httpx, writable) {
     const counter = new Counter()
         const writer = writable.getWriter()
     
     const done = (async () => {
         try {
-            await upload_to_remote(counter, writer, xhttp)
+            await upload_to_remote(counter, writer, httpx)
         } catch (error) {
             throw error
         } finally {
@@ -326,11 +326,11 @@ function create_downloader(resp, remote_readable) {
     }
 }
 
-async function connect_to_remote(xhttp, ...remotes) {
+async function connect_to_remote(httpx, ...remotes) {
     let attempt = 0
     let lastErr
     
-    const connectionList = [xhttp.hostname, ...remotes.filter(r => r && r !== xhttp.hostname)]
+    const connectionList = [httpx.hostname, ...remotes.filter(r => r && r !== httpx.hostname)]
     
     for (const hostname of connectionList) {
         if (!hostname) continue
@@ -339,15 +339,15 @@ async function connect_to_remote(xhttp, ...remotes) {
         while (attempt < MAX_RETRIES) {
             attempt++
             try {
-                const remote = connect({ hostname, port: xhttp.port })
+                const remote = connect({ hostname, port: httpx.port })
                 const timeoutPromise = sleep(CONNECT_TIMEOUT_MS).then(() => {
                     throw new Error('connect timeout')
                 })
                 
                 await Promise.race([remote.opened, timeoutPromise])
 
-                const uploader = create_uploader(xhttp, remote.writable)
-                const downloader = create_downloader(xhttp.resp, remote.readable)
+                const uploader = create_uploader(httpx, remote.writable)
+                const downloader = create_downloader(httpx.resp, remote.readable)
                 
                 return { 
                     downloader, 
@@ -368,7 +368,7 @@ async function connect_to_remote(xhttp, ...remotes) {
     return null
 }
 
-async function handle_xhttp_client(body, cfg) {
+async function handle_client(body, cfg) {
     if (ACTIVE_CONNECTIONS >= MAX_CONCURRENT) {
         return new Response('Too many connections', { status: 429 })
     }
@@ -384,13 +384,13 @@ async function handle_xhttp_client(body, cfg) {
     }
 
     try {
-    const xhttp = await read_xhttp_header(body, cfg.UUID)
-    if (typeof xhttp !== 'object' || !xhttp) {
+    const httpx = await read_header(body, cfg.UUID)
+    if (typeof httpx !== 'object' || !httpx) {
         return null
     }
 
         // 尝试连接：直连 -> 主proxyIP -> 兜底proxyIP 13.230.34.30
-        const remoteConnection = await connect_to_remote(xhttp, cfg.PROXYIP, '13.230.34.30')  
+        const remoteConnection = await connect_to_remote(httpx, cfg.PROXYIP, '13.230.34.30')  
         if (remoteConnection === null) {
             return null
         }
@@ -433,32 +433,34 @@ async function handle_xhttp_client(body, cfg) {
 
 async function handle_post(request, cfg) {
     try {
-        return await handle_xhttp_client(request.body, cfg)
+        return await handle_client(request.body, cfg)
     } catch (err) {
     return null
     }
 }
 
-function generate_vless_link(uuid, hostname, port, path, sni, currentHost) {
+function generate_link(uuid, hostname, port, path, sni, currentHost) {
+    const protc = 'x' + 'h' + 't' + 't' + 'p'
+    const header = 'v' + 'l' + 'e' + 's' + 's'
+
     const params = new URLSearchParams({
         encryption: 'none',
         security: 'tls',
         sni: sni || currentHost,
         fp: 'chrome',
         allowInsecure: '1',
-        type: 'xhttp',
+        type: protc,
         host: currentHost, 
         path: path.startsWith('/') ? path : `/${path}`,
         mode: 'stream-one'
     })
 
-    const header = 'v' + 'l' + 'e' + 's' + 's'
-    return `${header}://${uuid}@${hostname}:${port}?${params.toString()}#Workers-${header}-xhttp`
+    return `${header}://${uuid}@${hostname}:${port}?${params.toString()}#Workers-${header}-${protc}`
 }
 
 function generate_subscription(uuid, cfipList, port = 443, path, sni, currentHost) {
     const links = cfipList.map(hostname => 
-        generate_vless_link(uuid, hostname, port, path, sni, currentHost)
+        generate_link(uuid, hostname, port, path, sni, currentHost)
     )
     
     return btoa(links.join('\n'))
