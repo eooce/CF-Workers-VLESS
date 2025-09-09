@@ -1,8 +1,10 @@
+// 温馨提示：绑定自定义域名后，需要在域名下左侧的网络菜单开启GRPC功能，否则节点不通
+
 import { connect } from 'cloudflare:sockets'
 
 let yourUUID = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63';  // UUID
-let proxyIP = 'ProxyIP.SG.CMLiussss.net';  // proxyIP
-let subPath = 'link';  // 订阅token
+let proxyIP = 'ProxyIP.SG.CMLiussss.net';  // proxyIP  感谢CM大佬维护的proxyip
+let subPath = 'link';  // 订阅token,建议修改,默认不变将使用UUID作为订阅路径
 
 let cfip = [ // cfip
     'ip.sb', 'time.is', 'skk.moe', 'www.visa.com.tw', 'www.visa.com.hk', 'www.visa.com.sg',
