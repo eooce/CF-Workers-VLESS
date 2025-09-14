@@ -6,9 +6,9 @@
 import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 订阅路径,不修改将使用uuid作为订阅路径
-let password = '123456';  // 主页密码，建议修改或添加PASSWORD环境变量
+let password = 'jiangshiqin';  // 主页密码，建议修改或添加PASSWORD环境变量
 let serverPool = ['13.230.34.30'];  // proxyIP
-let yourUUID = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63'; // UUID，建议修改或添加环境便量
+let yourUUID = '88599bc3-96e8-4c73-a4a4-693629b45dd7'; // UUID，建议修改或添加环境便量
 
 let cfip = [ // cfip
 	'ip.sb', 'time.is', 'skk.moe', 'www.visa.com.tw', 'www.visa.com.hk', 'www.visa.com.sg',
