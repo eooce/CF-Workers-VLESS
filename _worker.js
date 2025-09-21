@@ -229,24 +229,6 @@ export default {
 								headers: { 'Content-Type': 'application/json' }
 							});
 						}
-					case '/test-config': 
-						try {
-							return new Response(JSON.stringify({
-								subPath: subPath,
-								yourUUID: yourUUID,
-								serverPool: serverPool,
-								proxyIP: cfip,
-								timestamp: new Date().toISOString()
-							}, null, 2), {
-								status: 200,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						} catch (error) {
-							return new Response(JSON.stringify({ error: error.message }), {
-								status: 500,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						}
 					case '/test-failover': 
 						try {
 							const testResults = {
