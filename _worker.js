@@ -207,76 +207,76 @@ export default {
 						} catch (connectError) {
 							return new Response(connectError.message, { status: 500 });
 						}
-					case '/test-dns': 
-						try {
-							const testResults = [];
-							for (const server of serverPool) {
-								const { hostname, port } = parseServerAddress(server);
-								const resolvedHostname = await resolveHostname(hostname);
-								testResults.push({
-									original: server,
-									parsed: { hostname, port },
-									resolved: resolvedHostname
-								});
-							}
-							return new Response(JSON.stringify(testResults, null, 2), {
-								status: 200,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						} catch (error) {
-							return new Response(JSON.stringify({ error: error.message }), {
-								status: 500,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						}
-					case '/test-failover': 
-						try {
-							const testResults = {
-								serverPool: serverPool,
-								proxyIP: cfip,
-								fallbackServer: 'Kr.tp50000.netlib.re',
-								connectionTests: []
-							};
+					// case '/test-dns': 
+					// 	try {
+					// 		const testResults = [];
+					// 		for (const server of serverPool) {
+					// 			const { hostname, port } = parseServerAddress(server);
+					// 			const resolvedHostname = await resolveHostname(hostname);
+					// 			testResults.push({
+					// 				original: server,
+					// 				parsed: { hostname, port },
+					// 				resolved: resolvedHostname
+					// 			});
+					// 		}
+					// 		return new Response(JSON.stringify(testResults, null, 2), {
+					// 			status: 200,
+					// 			headers: { 'Content-Type': 'application/json' }
+					// 		});
+					// 	} catch (error) {
+					// 		return new Response(JSON.stringify({ error: error.message }), {
+					// 			status: 500,
+					// 			headers: { 'Content-Type': 'application/json' }
+					// 		});
+					// 	}
+					// case '/test-failover': 
+					// 	try {
+					// 		const testResults = {
+					// 			serverPool: serverPool,
+					// 			proxyIP: cfip,
+					// 			fallbackServer: 'Kr.tp50000.netlib.re',
+					// 			connectionTests: []
+					// 		};
 							
-							const validServers = serverPool.filter(server => server && server.trim() !== '');
-							const allServers = [...validServers, 'Kr.tp50000.netlib.re'];
-							for (const server of allServers) {
-								try {
-									const { hostname, port } = parseServerAddress(server);
-									const resolvedHostname = await resolveHostname(hostname);
+					// 		const validServers = serverPool.filter(server => server && server.trim() !== '');
+					// 		const allServers = [...validServers, 'Kr.tp50000.netlib.re'];
+					// 		for (const server of allServers) {
+					// 			try {
+					// 				const { hostname, port } = parseServerAddress(server);
+					// 				const resolvedHostname = await resolveHostname(hostname);
 									
-									const socket = await connect({
-										hostname: resolvedHostname,
-										port: port,
-									});
+					// 				const socket = await connect({
+					// 					hostname: resolvedHostname,
+					// 					port: port,
+					// 				});
 									
-									await socket.close();
+					// 				await socket.close();
 									
-									testResults.connectionTests.push({
-										server: server,
-										hostname: resolvedHostname,
-										port: port,
-										status: 'success'
-									});
-								} catch (error) {
-									testResults.connectionTests.push({
-										server: server,
-										status: 'failed',
-										error: error.message
-									});
-								}
-							}
+					// 				testResults.connectionTests.push({
+					// 					server: server,
+					// 					hostname: resolvedHostname,
+					// 					port: port,
+					// 					status: 'success'
+					// 				});
+					// 			} catch (error) {
+					// 				testResults.connectionTests.push({
+					// 					server: server,
+					// 					status: 'failed',
+					// 					error: error.message
+					// 				});
+					// 			}
+					// 		}
 							
-							return new Response(JSON.stringify(testResults, null, 2), {
-								status: 200,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						} catch (error) {
-							return new Response(JSON.stringify({ error: error.message }), {
-								status: 500,
-								headers: { 'Content-Type': 'application/json' }
-							});
-						}
+					// 		return new Response(JSON.stringify(testResults, null, 2), {
+					// 			status: 200,
+					// 			headers: { 'Content-Type': 'application/json' }
+					// 		});
+					// 	} catch (error) {
+					// 		return new Response(JSON.stringify({ error: error.message }), {
+					// 			status: 500,
+					// 			headers: { 'Content-Type': 'application/json' }
+					// 		});
+					// 	}
 					default:
 						const randomSites = cfip.length > 0 ? cfip : [
 							'ip.sb', 'time.is', 'www.apple.com', 'skk.moe',
