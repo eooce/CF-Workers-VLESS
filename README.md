@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# CF-Workers-VLESS
+# CF-Workers-and-Snip-VLESS
 
 **中文** | [English](README_EN.md)
 
