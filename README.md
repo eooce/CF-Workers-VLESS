@@ -63,11 +63,14 @@ Telegram交流反馈群组: https://t.me/eooceu
 ## snippets 
 
 ### 相关路径说明
-| `默认路径` | /?ed=2560 |`使用代码里设置的默认proxyip` |
-| `域名proxyip` | /?ed=2560&proxyip=proxyip.domain.com |`使用域名proxyip` |
-| `带端口的proxyip` | /?ed=2560&proxyip=ip:端口 |`使用带端口的proxyip` |
-| `SOCKS5` | /?ed=2560&proxyip=socks://user:pass@host:port |`使用全局SOCKS5出站` |
-| `HTTP` | /?ed=2560&proxyip=http://host:port |`使用全局http/https出站` |
+| 类型 | 示例 | 说明 |
+|------|------|------|
+| **默认路径** | `/?ed=2560` | 使用代码里设置的默认 `proxyip` |
+| **域名 proxyip** | `/?ed=2560&proxyip=proxyip.domain.com` | 使用域名形式的 `proxyip` |
+| **带端口的 proxyip** | `/?ed=2560&proxyip=ip:端口` | 使用带端口的 `proxyip` |
+| **SOCKS5** | `/?ed=2560&proxyip=socks://user:pass@host:port` | 使用全局 SOCKS5 出站 |
+| **HTTP** | `/?ed=2560&proxyip=http://host:port` | 使用全局 HTTP/HTTPS 出站 |
+
 
 ## 许可证
 
