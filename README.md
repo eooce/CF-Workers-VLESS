@@ -28,7 +28,7 @@ Telegram交流反馈群组: https://t.me/eooceu
 |--------|------|--------|------|
 | `PASSWORD` | 主页访问密码 | `123456` | `your_web_password` |
 
-### 可选变量
+### workers可选变量
 
 | 变量名 | 描述 | 默认值 | 示例 |
 |--------|------|--------|------|
@@ -59,6 +59,16 @@ Telegram交流反馈群组: https://t.me/eooceu
 
 5. **访问自定义域名**
    - 输入登录密码进入主页查看相关订阅链接
+
+## snippets 
+
+### 相关路径说明
+|--------|------|--------|------|
+| `默认路径` | /?ed=2560 |`使用代码里设置的默认proxyip` |
+| `域名proxyip` | /?ed=2560&proxyip=proxyip.domain.com |`使用域名proxyip` |
+| `带端口的proxyip` | /?ed=2560&proxyip=ip:端口 |`使用带端口的proxyip` |
+| `SOCKS5` | /?ed=2560&proxyip=socks://user:pass@host:port |`使用全局SOCKS5出站` |
+| `HTTP` | /?ed=2560&proxyip=http://host:port |`使用全局http/https出站` |
 
 ## 许可证
 
