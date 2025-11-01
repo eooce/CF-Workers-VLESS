@@ -63,7 +63,6 @@ Telegram交流反馈群组: https://t.me/eooceu
 ## snippets 
 
 ### 相关路径说明
-|--------|------|--------|------|
 | `默认路径` | /?ed=2560 |`使用代码里设置的默认proxyip` |
 | `域名proxyip` | /?ed=2560&proxyip=proxyip.domain.com |`使用域名proxyip` |
 | `带端口的proxyip` | /?ed=2560&proxyip=ip:端口 |`使用带端口的proxyip` |
