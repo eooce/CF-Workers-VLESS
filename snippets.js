@@ -149,7 +149,7 @@ export default {
                 const newProxyIP = decodeURIComponent(pathname.substring(9)).trim();
                 if (newProxyIP) {
                     proxyIP = newProxyIP;
-                    return new Response(`代理已设置为: ${proxyIP}\n\n现在所有连接将使用此代理`, {
+                    return new Response(`set proxyIP to: ${proxyIP}\n\n`, {
                         headers: { 
                             'Content-Type': 'text/plain; charset=utf-8',
                             'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -340,7 +340,7 @@ async function connectViaHttp(proxyConfig, targetHost, targetPort, initialData) 
         
         const responseText = new TextDecoder().decode(responseData);
         if (!responseText.startsWith('HTTP/1.1 200') && !responseText.startsWith('HTTP/1.0 200')) {
-            throw new Error(`HTTP proxy connection failed: ${responseText.split('\r\n')[0]}`);
+            throw new Error(`HTTP connection failed: ${responseText.split('\r\n')[0]}`);
         }
         
         await writer.write(initialData);
