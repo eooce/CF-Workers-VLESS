@@ -3,10 +3,10 @@ import { connect } from 'cloudflare:sockets';
 let proxyIP = '13.230.34.30';  // proxyIP
 let yourUUID = '93bf61d9-3796-44c2-9b3a-49210ece2585';  // UUID
 
-// CDN
-let cfip = [
-    'mfa.gov.ua', 'saas.sin.fan', 'store.ubi.com','cf.130519.xyz','cf.008500.xyz', 
-    'cf.090227.xyz', 'cf.877774.xyz','cdns.doon.eu.org','sub.danfeng.eu.org','cf.zhetengsha.eu.org'
+// CDN 
+let cfip = [ // 格式：优选域名:端口#备注名称 或 优选IP:端口#备注名称 或 优选域名
+    'mfa.gov.ua#SG', 'saas.sin.fan#HK', 'store.ubi.com#JP','cf.130519.xyz#KR','cf.008500.xyz#HK', 
+    'cf.090227.xyz#US', 'cf.877774.xyz#HK','cdns.doon.eu.org#JP','sub.danfeng.eu.org','cf.zhetengsha.eu.org'
 ];  // 在此感谢各位大佬维护的优选域名
 
 function getHomePageHTML(currentDomain) {
@@ -170,16 +170,35 @@ export default {
                     return handleSubtionPage(request);
                 }
                 
-                if (url.pathname.toLowerCase().includes(`/sub/${yourUUID}`)) {
+               if (url.pathname.toLowerCase().includes(`/sub/${yourUUID}`)) {
                     const currentDomain = url.hostname;
                     const header = 'v' + 'l' + 'e' + 's' + 's';
-                    const nodeLinks = cfip.map(cdn => {
-                        return `${header}://${yourUUID}@${cdn}:443?encryption=none&security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=1&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#Snippets-${header}`;
+                    // 解析CDN列表中的自定义配置
+                    const nodeLinks = cfip.map(cdnItem => {
+                        let host, port = 443, nodeName = '';
+                        if (cdnItem.includes('#')) {
+                            const parts = cdnItem.split('#');
+                            cdnItem = parts[0];
+                            nodeName = parts[1];
+                        }
+                        
+                        if (cdnItem.includes(':')) {
+                            const parts = cdnItem.split(':');
+                            host = parts[0];
+                            port = parseInt(parts[1]) || 443;
+                        } else {
+                            host = cdnItem;
+                        }
+                        
+                        if (!nodeName) {
+                            nodeName = `Snippets-${header}`;
+                        }
+
+                        return `${header}://${yourUUID}@${host}:${port}?encryption=none&security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=1&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${nodeName}`;
                     });
                     
                     const linksText = nodeLinks.join('\n');
                     const base64Content = btoa(unescape(encodeURIComponent(linksText)));
-                    
                     return new Response(base64Content, {
                         headers: { 
                             'Content-Type': 'text/plain; charset=utf-8',
