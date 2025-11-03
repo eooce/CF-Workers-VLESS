@@ -8,7 +8,9 @@
 
 Telegram交流反馈群组: https://t.me/eooceu
 
-基于 Cloudflare Workers 的高性能 VLESS 代理服务
+基于 Cloudflare Workers & Snippets 的高性能 VLESS 代理服务
+
+YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 
 </div>
 
