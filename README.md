@@ -74,6 +74,11 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 | **HTTP** | `/?ed=2560&proxyip=http://host:port` | 使用全局 HTTP/HTTPS 出站 |
 
 
+## cloudns 双向解析域名部署snippets统一使用的域名前缀
+```bash
+_acme-challenge
+```
+
 ## 许可证
 
 GPL 2.0
