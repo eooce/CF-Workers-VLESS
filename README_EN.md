@@ -1,6 +1,6 @@
 <div align="center">
 
-# CF-Workers-VLESS
+# Workers & Snippets deploy VLESS + trojan
 
 [中文](README.md) | **English**
 
@@ -13,6 +13,7 @@ High-performance VLESS proxy service based on Cloudflare Workers
 ## Features
 
 - 🚀 High-performance proxy based on Cloudflare Workers
+- 🌐 Support vless + trojan
 - 🔐 Password-protected homepage access
 - 📱 Support for multiple clients (v2rayN, shadowrocket, loon, karing, clash, sing-box, etc.)
 - 🌐 Automatic failover and load balancing
@@ -34,6 +35,7 @@ High-performance VLESS proxy service based on Cloudflare Workers
 | `UUID` / `AUTH` / `uuid` | User UUID | `5dc15e15-f285-4a9d-959b-0e4fbdd77b63` | `your-uuid-here` |
 | `PROXYIP` / `proxyip` / `proxyIP` | Proxy server IP list | `13.230.34.30` | `ip1,ip2,ip3` |
 | `SUB_PATH` / `subpath` | Subscription path | `link` | `sub` |
+| `DISABLE_TROJAN` / `CLOSE_TROJAN` | disable trojan, set true disable, false enble | `false` | Default setting enabled|
 
 ## Deployment Steps
 
