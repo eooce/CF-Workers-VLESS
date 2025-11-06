@@ -8,7 +8,7 @@
 
 Telegram交流反馈群组: https://t.me/eooceu
 
-基于 Cloudflare Workers & Snippets 的高性能 VLESS 代理服务
+基于 Cloudflare Workers & Snippets 的高性能 VLESS+trojan 代理服务
 
 YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 
@@ -16,11 +16,13 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 
 ## 功能特性
 
-- 🚀 基于 Cloudflare Workers 的高性能代理
+- 🚀 基于 Cloudflare Workers 和 snippets 的高性能代理
+- 🌐 vless + trojan 双协议支持
 - 🔐 密码保护的主页访问
 - 📱 支持多种客户端(v2rayN,shadowrocket,loon,karing,clash,sing-box等)
 - 🌐 自动故障转移和负载均衡
 - 📊 实时连接测试和状态监控
+- 📊 默认禁用speedtest测速
 
 ## 环境变量配置
 
@@ -37,6 +39,7 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 | `UUID`或`AUTH`或`uuid` | 用户UUID | `5dc15e15-f285-4a9d-959b-0e4fbdd77b63` | `your-uuid` |
 | `PROXYIP`或`proxyip`或`proxyIP` | 代理服务器IP列表 | `13.230.34.30` | `tw.tp81.netlib.re` |
 | `SUB_PATH`或`subpath` | 订阅路径 | `link` | `sub` |
+| `DISABLE_TROJAN`或`CLOSE_TROJAN` | 是否关闭Trojan协议，true关闭，false开启 | `false` | 默认开启 |
 
 ## 部署步骤
 
@@ -62,7 +65,7 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 5. **访问自定义域名**
    - 输入登录密码进入主页查看相关订阅链接
 
-## snippets 
+## snippets / workers 路径进阶用法
 
 ### 相关路径说明
 | 类型 | 示例 | 说明 |
@@ -70,8 +73,8 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 | **默认路径** | `/?ed=2560` | 使用代码里设置的默认 `proxyip` |
 | **域名 proxyip** | `/?ed=2560&proxyip=proxyip.domain.com` | 使用域名形式的 `proxyip` |
 | **带端口的 proxyip** | `/?ed=2560&proxyip=ip:port` | 使用带端口的 `proxyip` |
-| **SOCKS5** | `/?ed=2560&proxyip=socks://user:pass@host:port` | 使用全局 SOCKS5 出站 |
-| **HTTP** | `/?ed=2560&proxyip=http://host:port` | 使用全局 HTTP/HTTPS 出站 |
+| **SOCKS5** | `/?ed=2560&proxyip=socks://user:password@host:port` | 使用全局 SOCKS5 出站 |
+| **HTTP** | `/?ed=2560&proxyip=http://user:password@host:port` | 使用全局 HTTP/HTTPS 出站 |
 
 
 ## cloudns 双向解析域名部署snippets统一使用的域名前缀
