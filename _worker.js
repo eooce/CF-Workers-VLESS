@@ -2,16 +2,18 @@
 // SUB_PATH | subpath  订阅路径
 // PROXYIP  | proxyip  代理IP
 // UUID     | uuid     UUID
+// DISABLE_TROJAN | 是否关闭Trojan, 设置为true时关闭，false开启，默认开启 
 
 import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 节点订阅路径,不修改将使用uuid作为订阅路径
-let password = '123456';  // 主页密码，建议修改或添加PASSWORD环境变量
+let password = '123456';  // 主页密码,建议修改或添加 PASSWORD环境变量
 let proxyIP = '13.230.34.30';  // proxyIP
-let yourUUID = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63'; // UUID，建议修改或添加环境便量
+let yourUUID = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63'; // UUID,建议修改或添加环境便量
+let disabletro = false;  // 是否关闭trojan, 设置为true时关闭，false开启 
 
 // CDN 
-let cfip = [ // 格式：优选域名:端口#备注名称、优选IP:端口#备注名称、[ipv6优选]:端口#备注名称、优选域名 
+let cfip = [ // 格式:优选域名:端口#备注名称、优选IP:端口#备注名称、[ipv6优选]:端口#备注名称、优选域名#备注 
     'mfa.gov.ua#SG', 'saas.sin.fan#HK', 'store.ubi.com#JP','cf.130519.xyz#KR','cf.008500.xyz#HK', 
     'cf.090227.xyz#SG', 'cf.877774.xyz#HK','cdns.doon.eu.org#JP','sub.danfeng.eu.org#TW','cf.zhetengsha.eu.org#HK'
 ];  // 在此感谢各位大佬维护的优选域名
@@ -45,7 +47,6 @@ function base64ToArray(b64Str) {
 
 function parsePryAddress(serverStr) {
     if (!serverStr) return null;
-    
     serverStr = serverStr.trim();
     // 解析 S5
     if (serverStr.startsWith('socks://') || serverStr.startsWith('socks5://')) {
@@ -60,7 +61,6 @@ function parsePryAddress(serverStr) {
                 password: url.password ? decodeURIComponent(url.password) : ''
             };
         } catch (e) {
-            // console.error('Failed to parse S5 URL:', e);
             return null;
         }
     }
@@ -77,7 +77,6 @@ function parsePryAddress(serverStr) {
                 password: url.password ? decodeURIComponent(url.password) : ''
             };
         } catch (e) {
-            // console.error('Failed to parse HTTP URL:', e);
             return null;
         }
     }
@@ -113,10 +112,96 @@ function parsePryAddress(serverStr) {
     return { type: 'direct', host: serverStr, port: 443 };
 }
 
+function isSpeedTestSite(hostname) {
+    const speedTestDomains = ['speedtest.net','fast.com',];
+    if (speedTestDomains.includes(hostname)) {
+        return true;
+    }
+
+    for (const domain of speedTestDomains) {
+        if (hostname.endsWith('.' + domain) || hostname === domain) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function sha224(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+  let H = [0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4];
+  const msgLen = data.length;
+  const bitLen = msgLen * 8;
+  const paddedLen = Math.ceil((msgLen + 9) / 64) * 64;
+  const padded = new Uint8Array(paddedLen);
+  padded.set(data);
+  padded[msgLen] = 0x80;
+  const view = new DataView(padded.buffer);
+  view.setUint32(paddedLen - 4, bitLen, false);
+  for (let chunk = 0; chunk < paddedLen; chunk += 64) {
+    const W = new Uint32Array(64);
+    
+    for (let i = 0; i < 16; i++) {
+      W[i] = view.getUint32(chunk + i * 4, false);
+    }
+    
+    for (let i = 16; i < 64; i++) {
+      const s0 = rightRotate(W[i - 15], 7) ^ rightRotate(W[i - 15], 18) ^ (W[i - 15] >>> 3);
+      const s1 = rightRotate(W[i - 2], 17) ^ rightRotate(W[i - 2], 19) ^ (W[i - 2] >>> 10);
+      W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
+    }
+    
+    let [a, b, c, d, e, f, g, h] = H;
+    
+    for (let i = 0; i < 64; i++) {
+      const S1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const temp1 = (h + S1 + ch + K[i] + W[i]) >>> 0;
+      const S0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = (S0 + maj) >>> 0;
+      
+      h = g;
+      g = f;
+      f = e;
+      e = (d + temp1) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (temp1 + temp2) >>> 0;
+    }
+    
+    H[0] = (H[0] + a) >>> 0;
+    H[1] = (H[1] + b) >>> 0;
+    H[2] = (H[2] + c) >>> 0;
+    H[3] = (H[3] + d) >>> 0;
+    H[4] = (H[4] + e) >>> 0;
+    H[5] = (H[5] + f) >>> 0;
+    H[6] = (H[6] + g) >>> 0;
+    H[7] = (H[7] + h) >>> 0;
+  }
+  
+  const result = [];
+  for (let i = 0; i < 7; i++) {
+    result.push(
+      ((H[i] >>> 24) & 0xff).toString(16).padStart(2, '0'),
+      ((H[i] >>> 16) & 0xff).toString(16).padStart(2, '0'),
+      ((H[i] >>> 8) & 0xff).toString(16).padStart(2, '0'),
+      (H[i] & 0xff).toString(16).padStart(2, '0')
+    );
+  }
+  return result.join('');
+}
+
+function rightRotate(value, amount) {
+  return (value >>> amount) | (value << (32 - amount));
+}
+
 export default {
 	/**
 	 * @param {import("@cloudflare/workers-types").Request} request
-	 * @param {{UUID: string, uuid: string, PROXYIP: string, PASSWORD: string, PASSWD: string, password: string, proxyip: string, proxyIP: string, SUB_PATH: string, subpath: string}} env
+	 * @param {{UUID: string, uuid: string, PROXYIP: string, PASSWORD: string, PASSWD: string, password: string, proxyip: string, proxyIP: string, SUB_PATH: string, subpath: string, DISABLE_TROJAN: string, CLOSE_TROJAN: string}} env
 	 * @param {import("@cloudflare/workers-types").ExecutionContext} ctx
 	 * @returns {Promise<Response>}
 	 */
@@ -134,6 +219,8 @@ export default {
             password = env.PASSWORD || env.PASSWD || env.password || password;
             subPath = env.SUB_PATH || env.subpath || subPath;
             yourUUID = env.UUID || env.uuid || yourUUID;
+            disabletro = env.DISABLE_TROJAN || env.CLOSE_TROJAN || disabletro;
+            
             const url = new URL(request.url);
             const pathname = url.pathname;
             
@@ -163,8 +250,11 @@ export default {
                 
                 if (url.pathname.toLowerCase().includes(`/${subPath.toLowerCase()}`)) {
                     const currentDomain = url.hostname;
-                    const header = 'v' + 'l' + 'e' + 's' + 's';
-                    const nodeLinks = cfip.map(cdnItem => {
+                    const vlsHeader = 'v' + 'l' + 'e' + 's' + 's';
+                    const troHeader = 't' + 'r' + 'o' + 'j' + 'a' + 'n';
+                    
+                    // 生成 VLE-SS 节点
+                    const vlsLinks = cfip.map(cdnItem => {
                         let host, port = 443, nodeName = '';
                         if (cdnItem.includes('#')) {
                             const parts = cdnItem.split('#');
@@ -185,14 +275,40 @@ export default {
                             host = cdnItem;
                         }
                         
-                        if (!nodeName) {
-                            nodeName = `Workers-${header}`;
-                        }
-
-                        return `${header}://${yourUUID}@${host}:${port}?encryption=none&security=tls&sni=${currentDomain}&fp=chrome&allowInsecure=1&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${nodeName}`;
+                        const vlsNodeName = nodeName ? `${nodeName}-${vlsHeader}` : `Workers-${vlsHeader}`;
+                        return `${vlsHeader}://${yourUUID}@${host}:${port}?encryption=none&security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=1&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${vlsNodeName}`;
                     });
                     
-                    const linksText = nodeLinks.join('\n');
+                    // 生成 Tro-jan 节点
+                    let allLinks = [...vlsLinks];
+                    if (!disabletro) {
+                        const troLinks = cfip.map(cdnItem => {
+                            let host, port = 443, nodeName = '';
+                            if (cdnItem.includes('#')) {
+                                const parts = cdnItem.split('#');
+                                cdnItem = parts[0];
+                                nodeName = parts[1];
+                            }
+
+                            if (cdnItem.startsWith('[') && cdnItem.includes(']:')) {
+                                const ipv6End = cdnItem.indexOf(']:');
+                                host = cdnItem.substring(0, ipv6End + 1); 
+                                const portStr = cdnItem.substring(ipv6End + 2); 
+                                port = parseInt(portStr) || 443;
+                            } else if (cdnItem.includes(':')) {
+                                const parts = cdnItem.split(':');
+                                host = parts[0];
+                                port = parseInt(parts[1]) || 443;
+                            } else {
+                                host = cdnItem;
+                            }
+                            
+                            const troNodeName = nodeName ? `${nodeName}-${troHeader}` : `Workers-${troHeader}`;
+                            return `${troHeader}://${yourUUID}@${host}:${port}?security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=1&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${troNodeName}`;
+                        });
+                        allLinks = [...vlsLinks, ...troLinks];
+                    }
+                    const linksText = allLinks.join('\n');
                     const base64Content = btoa(unescape(encodeURIComponent(linksText)));
                     return new Response(base64Content, {
                         headers: { 
@@ -204,7 +320,6 @@ export default {
             }
             return new Response('Not Found', { status: 404 });
         } catch (err) {
-            // console.error('Error:', err);
             return new Response('Internal Server Error', { status: 500 });
         }
     },
@@ -220,6 +335,7 @@ async function handleVlsRequest(request, customProxyIP) {
     serverSock.accept();
     let remoteConnWrapper = { socket: null };
     let isDnsQuery = false;
+    let isTrojan = false;
     const earlyData = request.headers.get('sec-websocket-protocol') || '';
     const readable = makeReadableStr(serverSock, earlyData);
 
@@ -232,8 +348,28 @@ async function handleVlsRequest(request, customProxyIP) {
                 writer.releaseLock();
                 return;
             }
+            
+            if (!disabletro) {
+                const trojanResult = await parsetroHeader(chunk, yourUUID);
+                if (!trojanResult.hasError) {
+                    isTrojan = true;
+                    const { addressType, port, hostname, rawClientData } = trojanResult;
+                    
+                    if (isSpeedTestSite(hostname)) {
+                        throw new Error('Speedtest site is blocked');
+                    }
+                    
+                    await forwardataTCP(hostname, port, rawClientData, serverSock, null, remoteConnWrapper, customProxyIP);
+                    return;
+                }
+            }
+            
             const { hasError, message, addressType, port, hostname, rawIndex, version, isUDP } = parseVLsPacketHeader(chunk, yourUUID);
             if (hasError) throw new Error(message);
+
+            if (isSpeedTestSite(hostname)) {
+                throw new Error('Speedtest site is blocked');
+            }
 
             if (isUDP) {
                 if (port === 53) isDnsQuery = true;
@@ -242,7 +378,7 @@ async function handleVlsRequest(request, customProxyIP) {
             const respHeader = new Uint8Array([version[0], 0]);
             const rawData = chunk.slice(rawIndex);
             if (isDnsQuery) return forwardataudp(rawData, serverSock, respHeader);
-            await forwardataTCP(addressType, hostname, port, rawData, serverSock, respHeader, remoteConnWrapper, customProxyIP);
+            await forwardataTCP(hostname, port, rawData, serverSock, respHeader, remoteConnWrapper, customProxyIP);
         },
     })).catch((err) => {
         // console.error('Readable pipe error:', err);
@@ -251,9 +387,78 @@ async function handleVlsRequest(request, customProxyIP) {
     return new Response(null, { status: 101, webSocket: clientSock });
 }
 
+async function parsetroHeader(buffer, passwordPlainText) {
+  const sha224Password = await sha224(passwordPlainText);
+  
+  if (buffer.byteLength < 56) {
+    return { hasError: true, message: "invalid data" };
+  }
+  let crLfIndex = 56;
+  if (new Uint8Array(buffer.slice(56, 57))[0] !== 0x0d || new Uint8Array(buffer.slice(57, 58))[0] !== 0x0a) {
+    return { hasError: true, message: "invalid header format" };
+  }
+  const password = new TextDecoder().decode(buffer.slice(0, crLfIndex));
+  if (password !== sha224Password) {
+    return { hasError: true, message: "invalid password" };
+  }
+
+  const socks5DataBuffer = buffer.slice(crLfIndex + 2);
+  if (socks5DataBuffer.byteLength < 6) {
+    return { hasError: true, message: "invalid S5 request data" };
+  }
+
+  const view = new DataView(socks5DataBuffer);
+  const cmd = view.getUint8(0);
+  if (cmd !== 1) {
+    return { hasError: true, message: "unsupported command, only TCP is allowed" };
+  }
+
+  const atype = view.getUint8(1);
+  let addressLength = 0;
+  let addressIndex = 2;
+  let address = "";
+  switch (atype) {
+    case 1: // IPv4
+      addressLength = 4;
+      address = new Uint8Array(socks5DataBuffer.slice(addressIndex, addressIndex + addressLength)).join(".");
+      break;
+    case 3: // Domain
+      addressLength = new Uint8Array(socks5DataBuffer.slice(addressIndex, addressIndex + 1))[0];
+      addressIndex += 1;
+      address = new TextDecoder().decode(socks5DataBuffer.slice(addressIndex, addressIndex + addressLength));
+      break;
+    case 4: // IPv6
+      addressLength = 16;
+      const dataView = new DataView(socks5DataBuffer.slice(addressIndex, addressIndex + addressLength));
+      const ipv6 = [];
+      for (let i = 0; i < 8; i++) {
+        ipv6.push(dataView.getUint16(i * 2).toString(16));
+      }
+      address = ipv6.join(":");
+      break;
+    default:
+      return { hasError: true, message: `invalid addressType is ${atype}` };
+  }
+
+  if (!address) {
+    return { hasError: true, message: `address is empty, addressType is ${atype}` };
+  }
+
+  const portIndex = addressIndex + addressLength;
+  const portBuffer = socks5DataBuffer.slice(portIndex, portIndex + 2);
+  const portRemote = new DataView(portBuffer).getUint16(0);
+
+  return {
+    hasError: false,
+    addressType: atype,
+    port: portRemote,
+    hostname: address,
+    rawClientData: socks5DataBuffer.slice(portIndex + 4)
+  };
+}
+
 async function connect2Socks5(proxyConfig, targetHost, targetPort, initialData) {
     const { host, port, username, password } = proxyConfig;
-    // console.log(`Connecting via S5: ${host}:${port} -> ${targetHost}:${targetPort}`);
     const socket = connect({ hostname: host, port: port });
     const writer = socket.writable.getWriter();
     const reader = socket.readable.getReader();
@@ -320,7 +525,6 @@ async function connect2Socks5(proxyConfig, targetHost, targetPort, initialData) 
 
 async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
     const { host, port, username, password } = proxyConfig;
-    // console.log(`Connecting via HTTP: ${host}:${port} -> ${targetHost}:${targetPort}`);
     const socket = connect({ hostname: host, port: port });
     const writer = socket.writable.getWriter();
     const reader = socket.readable.getReader();
@@ -370,9 +574,8 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
     }
 }
 
-async function forwardataTCP(addrType, host, portNum, rawData, ws, respHeader, remoteConnWrapper, customProxyIP) {
+async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnWrapper, customProxyIP) {
     async function connectDirect(address, port, data) {
-        // console.log(`Direct connecting to ${address}:${port}`);
         const remoteSock = connect({ hostname: address, port: port });
         const writer = remoteSock.writable.getWriter();
         await writer.write(data);
@@ -386,18 +589,14 @@ async function forwardataTCP(addrType, host, portNum, rawData, ws, respHeader, r
         proxyConfig = parsePryAddress(customProxyIP);
         if (proxyConfig && (proxyConfig.type === 'socks5' || proxyConfig.type === 'http')) {
             shouldUseProxy = true;
-            // console.log(`Using custom proxy (${proxyConfig.type}): ${proxyConfig.host}:${proxyConfig.port}`);
         } else if (!proxyConfig) {
             proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
-            // console.log(`Custom proxy parse failed, using default: ${proxyConfig.host}:${proxyConfig.port}`);
         }
     } else {
-        // 使用默认代理
         proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
         if (proxyConfig.type === 'socks5' || proxyConfig.type === 'http') {
             shouldUseProxy = true;
         }
-        // console.log(`Using default proxy (${proxyConfig.type}): ${proxyConfig.host}:${proxyConfig.port}`);
     }
     
     async function connecttoPry() {
@@ -415,22 +614,18 @@ async function forwardataTCP(addrType, host, portNum, rawData, ws, respHeader, r
         connectStreams(newSocket, ws, respHeader, null);
     }
     
-    // 如果配置了S5或HTTP，直接使用代理连接
     if (shouldUseProxy) {
         try {
             await connecttoPry();
         } catch (err) {
-            // console.log('Proxy connection failed:', err.message);
             throw err;
         }
     } else {
-        // 否则先尝试直连，失败后使用代理
         try {
             const initialSocket = await connectDirect(host, portNum, rawData);
             remoteConnWrapper.socket = initialSocket;
             connectStreams(initialSocket, ws, respHeader, connecttoPry);
         } catch (err) {
-            // console.log('Direct connection failed, retrying with proxy:', err.message);
             await connecttoPry();
         }
     }
@@ -443,7 +638,7 @@ function parseVLsPacketHeader(chunk, token) {
     const optLen = new Uint8Array(chunk.slice(17, 18))[0];
     const cmd = new Uint8Array(chunk.slice(18 + optLen, 19 + optLen))[0];
     let isUDP = false;
-    if (cmd === 1) {} else if (cmd === 2) { isUDP = true; } else { return { hasError: true, message: 'Invalid cmd' }; }
+    if (cmd === 1) {} else if (cmd === 2) { isUDP = true; } else { return { hasError: true, message: 'Invalid command' }; }
     const portIdx = 19 + optLen;
     const port = new DataView(chunk.slice(portIdx, portIdx + 2)).getUint16(0);
     let addrIdx = portIdx + 2, addrLen = 0, addrValIdx = addrIdx + 1, hostname = '';
@@ -517,7 +712,6 @@ async function connectStreams(remoteSocket, webSocket, headerData, retryFunc) {
             abort() {},
         })
     ).catch((err) => { 
-        // console.error('Stream pipe error:', err);
         closeSocketQuietly(webSocket); 
     });
     if (!hasData && retryFunc) {
@@ -559,23 +753,15 @@ async function forwardataudp(udpChunk, webSocket, respHeader) {
 function getHomePage(request) {
 	const url = request.headers.get('Host');
 	const baseUrl = `https://${url}`;
-	
-	// 检查是否有密码验证
 	const urlObj = new URL(request.url);
 	const providedPassword = urlObj.searchParams.get('password');
-	
-	// 如果提供了密码，验证密码
 	if (providedPassword) {
 		if (providedPassword === password) {
-			// 密码正确，显示主页内容
 			return getMainPageContent(url, baseUrl);
 		} else {
-			// 密码错误，显示错误信息
 			return getLoginPage(url, baseUrl, true);
 		}
 	}
-	
-	// 如果没有提供密码，显示登录页面
 	return getLoginPage(url, baseUrl, false);
 }
 
@@ -727,7 +913,7 @@ function getLoginPage(url, baseUrl, showError = false) {
         <h1 class="title">Workers Service</h1>
         <p class="subtitle">请输入密码以访问服务</p>
         
-        ${showError ? '<div class="error-message">密码错误，请重试</div>' : ''}
+        ${showError ? '<div class="error-message">密码错误,请重试</div>' : ''}
         
         <form onsubmit="handleLogin(event)">
             <div class="form-group">
@@ -771,7 +957,7 @@ function getLoginPage(url, baseUrl, showError = false) {
 }
 
 /**
- * 获取主页内容（密码验证通过后显示）
+ * 获取主页内容(密码验证通过后显示)
  * @param {string} url 
  * @param {string} baseUrl 
  * @returns {Response}
@@ -1000,7 +1186,6 @@ function getMainPageContent(url, baseUrl) {
             fill: currentColor;
         }
         
-        /* 右上角通知样式 */
         .toast {
             position: fixed;
             top: 20px;
@@ -1129,7 +1314,7 @@ function getMainPageContent(url, baseUrl) {
     <div class="container">
         <div class="logo"><img src="https://img.icons8.com/color/96/cloudflare.png" alt="Logo"></div>
         <h1 class="title">Workers Service</h1>
-        <p class="subtitle">基于 Cloudflare Workers 的高性能网络服务</p>
+        <p class="subtitle">基于 Cloudflare Workers 的高性能网络服务 (VLESS + Trojan)</p>
         
         <div class="info-card">
             <div class="info-item">
@@ -1168,10 +1353,9 @@ function getMainPageContent(url, baseUrl) {
             <div class="footer-links">
                 <a href="https://github.com/eooce/CF-Workers-VLESS" target="_blank" class="footer-link">
                     <svg class="github-icon" viewBox="0 0 24 24">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.479-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
                     <span>GitHub 项目地址</span>
-                </a>
                 </a>
                 <a href="https://check-proxyip.ssss.nyc.mn/" target="_blank" class="footer-link">
                     <span>✅</span>
@@ -1186,15 +1370,12 @@ function getMainPageContent(url, baseUrl) {
     </div>
     
     <script>
-        // 显示toast通知
         function showToast(message) {
-            // 移除已存在的toast
             const existingToast = document.querySelector('.toast');
             if (existingToast) {
                 existingToast.remove();
             }
             
-            // 创建新的toast
             const toast = document.createElement('div');
             toast.className = 'toast';
             
@@ -1211,12 +1392,10 @@ function getMainPageContent(url, baseUrl) {
             
             document.body.appendChild(toast);
             
-            // 显示动画
             setTimeout(() => {
                 toast.classList.add('show');
             }, 10);
             
-            // 1.5秒后自动消失
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => {
@@ -1230,54 +1409,50 @@ function getMainPageContent(url, baseUrl) {
         function copySubscription() {
             const configUrl = '${baseUrl}/${subPath}';
             navigator.clipboard.writeText(configUrl).then(() => {
-                showToast('base64订阅链接已复制到剪贴板！');
+                showToast('V2rayN订阅链接已复制到剪贴板!');
             }).catch(() => {
-                // Fallback for older browsers
                 const textArea = document.createElement('textarea');
                 textArea.value = configUrl;
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showToast('base64订阅链接已复制到剪贴板！');
+                showToast('V2rayN订阅链接已复制到剪贴板!');
             });
         }
         
         function copyClashSubscription() {
             const clashUrl = 'https://sublink.eooce.com/clash?config=${baseUrl}/${subPath}';
             navigator.clipboard.writeText(clashUrl).then(() => {
-                showToast('Clash订阅链接已复制到剪贴板！');
+                showToast('Clash订阅链接已复制到剪贴板!');
             }).catch(() => {
-                // Fallback for older browsers
                 const textArea = document.createElement('textarea');
                 textArea.value = clashUrl;
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showToast('Clash订阅链接已复制到剪贴板！');
+                showToast('Clash订阅链接已复制到剪贴板!');
             });
         }
         
         function copySingboxSubscription() {
             const singboxUrl = 'https://sublink.eooce.com/singbox?config=${baseUrl}/${subPath}';
             navigator.clipboard.writeText(singboxUrl).then(() => {
-                showToast('singbox订阅链接已复制到剪贴板！');
+                showToast('singbox订阅链接已复制到剪贴板!');
             }).catch(() => {
-                // Fallback for older browsers
                 const textArea = document.createElement('textarea');
                 textArea.value = singboxUrl;
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showToast('singbox订阅链接已复制到剪贴板！');
+                showToast('singbox订阅链接已复制到剪贴板!');
             });
         }
         
         function logout() {
-            if (confirm('确定要退出登录吗？')) {
-                // 清除URL中的password参数，重定向到登录页面
+            if (confirm('确定要退出登录吗?')) {
                 const currentUrl = new URL(window.location);
                 currentUrl.searchParams.delete('password');
                 window.location.href = currentUrl.toString();
