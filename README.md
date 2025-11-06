@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# CF-Workers-and-Snip-VLESS
+# Workers & Snippets deploy VLESS + trojan
 
 **中文** | [English](README_EN.md)
 
