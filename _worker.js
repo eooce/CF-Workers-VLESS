@@ -226,22 +226,34 @@ export default {
             
             let pathProxyIP = null;
             if (pathname.startsWith('/proxyip=')) {
-                pathProxyIP = decodeURIComponent(pathname.substring(9)).trim();
-                if (url.searchParams.size === 0) {
-                    if (pathProxyIP) {
-                        proxyIP = pathProxyIP;
-                        return new Response(`set proxyIP to: ${proxyIP}\n\n`, {
-                            headers: { 
-                                'Content-Type': 'text/plain; charset=utf-8',
-                                'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-                            },
-                        });
-                    }
+                try {
+                    pathProxyIP = decodeURIComponent(pathname.substring(9)).trim();
+                } catch (e) {
+                    // 忽略错误
+                }
+
+                if (pathProxyIP && !request.headers.get('Upgrade')) {
+                    proxyIP = pathProxyIP;
+                    return new Response(`set proxyIP to: ${proxyIP}\n\n`, {
+                        headers: { 
+                            'Content-Type': 'text/plain; charset=utf-8',
+                            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                        },
+                    });
                 }
             }
 
             if (request.headers.get('Upgrade') === 'websocket') {
-                const customProxyIP = pathProxyIP || url.searchParams.get('proxyip');
+                let wsPathProxyIP = null;
+                if (pathname.startsWith('/proxyip=')) {
+                    try {
+                        wsPathProxyIP = decodeURIComponent(pathname.substring(9)).trim();
+                    } catch (e) {
+                        // 忽略错误
+                    }
+                }
+                
+                const customProxyIP = wsPathProxyIP || url.searchParams.get('proxyip') || request.headers.get('proxyip');
                 return await handleVlsRequest(request, customProxyIP);
             } else if (request.method === 'GET') {
                 if (url.pathname === '/') {
@@ -479,7 +491,6 @@ async function connect2Socks5(proxyConfig, targetHost, targetPort, initialData) 
             if (!username || !password) {
                 throw new Error('S5 requires authentication');
             }
-            
             const userBytes = new TextEncoder().encode(username);
             const passBytes = new TextEncoder().encode(password);
             const authPacket = new Uint8Array(3 + userBytes.length + passBytes.length);
@@ -528,48 +539,78 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
     const socket = connect({ hostname: host, port: port });
     const writer = socket.writable.getWriter();
     const reader = socket.readable.getReader();
-    
     try {
         let connectRequest = `CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\n`;
         connectRequest += `Host: ${targetHost}:${targetPort}\r\n`;
+        
         if (username && password) {
             const auth = btoa(`${username}:${password}`);
-            connectRequest += `Authorization: Basic ${auth}\r\n`;
+            connectRequest += `Proxy-Authorization: Basic ${auth}\r\n`;
         }
         
+        connectRequest += `User-Agent: Mozilla/5.0\r\n`;
+        connectRequest += `Connection: keep-alive\r\n`;
         connectRequest += '\r\n';
         await writer.write(new TextEncoder().encode(connectRequest));
-        let responseData = new Uint8Array(0);
-        let headerComplete = false;
+        let responseBuffer = new Uint8Array(0);
+        let headerEndIndex = -1;
+        let bytesRead = 0;
+        const maxHeaderSize = 8192;
         
-        while (!headerComplete) {
-            const chunk = await reader.read();
-            if (chunk.done) {
-                throw new Error('HTTP connection closed unexpectedly');
+        while (headerEndIndex === -1 && bytesRead < maxHeaderSize) {
+            const { done, value } = await reader.read();
+            if (done) {
+                throw new Error('Connection closed before receiving HTTP response');
             }
+            const newBuffer = new Uint8Array(responseBuffer.length + value.length);
+            newBuffer.set(responseBuffer);
+            newBuffer.set(value, responseBuffer.length);
+            responseBuffer = newBuffer;
+            bytesRead = responseBuffer.length;
             
-            const newData = new Uint8Array(responseData.length + chunk.value.byteLength);
-            newData.set(responseData);
-            newData.set(new Uint8Array(chunk.value), responseData.length);
-            responseData = newData;
-            const responseText = new TextDecoder().decode(responseData);
-            if (responseText.includes('\r\n\r\n')) {
-                headerComplete = true;
+            for (let i = 0; i < responseBuffer.length - 3; i++) {
+                if (responseBuffer[i] === 0x0d && responseBuffer[i + 1] === 0x0a &&
+                    responseBuffer[i + 2] === 0x0d && responseBuffer[i + 3] === 0x0a) {
+                    headerEndIndex = i + 4;
+                    break;
+                }
             }
         }
         
-        const responseText = new TextDecoder().decode(responseData);
-        if (!responseText.startsWith('HTTP/1.1 200') && !responseText.startsWith('HTTP/1.0 200')) {
-            throw new Error(`HTTP connection failed: ${responseText.split('\r\n')[0]}`);
+        if (headerEndIndex === -1) {
+            throw new Error('Invalid HTTP response');
         }
+        
+        const headerText = new TextDecoder().decode(responseBuffer.slice(0, headerEndIndex));
+        const statusLine = headerText.split('\r\n')[0];
+        const statusMatch = statusLine.match(/HTTP\/\d\.\d\s+(\d+)/);
+        
+        if (!statusMatch) {
+            throw new Error(`Invalid response: ${statusLine}`);
+        }
+        
+        const statusCode = parseInt(statusMatch[1]);
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new Error(`Connection failed: ${statusLine}`);
+        }
+        
+        console.log('HTTP connection established for Trojan');
         
         await writer.write(initialData);
         writer.releaseLock();
         reader.releaseLock();
+        
         return socket;
     } catch (error) {
-        writer.releaseLock();
-        reader.releaseLock();
+        try { 
+            writer.releaseLock(); 
+        } catch (e) {}
+        try { 
+            reader.releaseLock(); 
+        } catch (e) {}
+        try { 
+            socket.close(); 
+        } catch (e) {}
         throw error;
     }
 }
@@ -587,14 +628,14 @@ async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnW
     let shouldUseProxy = false;
     if (customProxyIP) {
         proxyConfig = parsePryAddress(customProxyIP);
-        if (proxyConfig && (proxyConfig.type === 'socks5' || proxyConfig.type === 'http')) {
+        if (proxyConfig && (proxyConfig.type === 'socks5' || proxyConfig.type === 'http' || proxyConfig.type === 'https')) {
             shouldUseProxy = true;
         } else if (!proxyConfig) {
             proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
         }
     } else {
         proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
-        if (proxyConfig.type === 'socks5' || proxyConfig.type === 'http') {
+        if (proxyConfig.type === 'socks5' || proxyConfig.type === 'http' || proxyConfig.type === 'https') {
             shouldUseProxy = true;
         }
     }
@@ -603,7 +644,7 @@ async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnW
         let newSocket;
         if (proxyConfig.type === 'socks5') {
             newSocket = await connect2Socks5(proxyConfig, host, portNum, rawData);
-        } else if (proxyConfig.type === 'http') {
+        } else if (proxyConfig.type === 'http' || proxyConfig.type === 'https') {
             newSocket = await connect2Http(proxyConfig, host, portNum, rawData);
         } else {
             newSocket = await connectDirect(proxyConfig.host, proxyConfig.port, rawData);
