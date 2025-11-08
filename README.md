@@ -68,6 +68,8 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 ## snippets / workers 路径进阶用法
 
 ### 相关路径说明
+<img width="688" height="800" alt="image" src="https://github.com/user-attachments/assets/86b3dd1d-bbca-4786-9bb3-430bf6700024" />
+
 | 类型 | 示例 | 说明 |
 |------|------|------|
 | **默认路径** | `/?ed=2560` | 使用代码里设置的默认 `proxyip` |
