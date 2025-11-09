@@ -71,7 +71,7 @@ function closeSocketQuietly(socket) {
 }
 
 function isSpeedTestSite(hostname) {
-    const speedTestDomains = ['speedtest.net','fast.com','speed.cloudflare.com', 'speedtest.cn'];
+    const speedTestDomains = ['speedtest.net','fast.com','speedtest.cn','speed.cloudflare.com','ovo.speedtestcustom.com'];
     if (speedTestDomains.includes(hostname)) {
         return true;
     }
