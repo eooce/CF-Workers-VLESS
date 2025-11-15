@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# Workers & Snippets deploy VLESS + trojan
+# Workers & Snippets deploy VLESS + trojan + shadowsocks
 
 **中文** | [English](README_EN.md)
 
@@ -83,6 +83,10 @@ YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 ```bash
 _acme-challenge
 ```
+
+## shadowsocks 节点参数对照图
+<img width="1540" height="1293" alt="image" src="https://github.com/user-attachments/assets/7a7b684e-f58f-4f09-a4a9-ca54d7a21d2f" />
+
 
 ## 许可证
 
