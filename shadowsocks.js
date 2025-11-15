@@ -441,7 +441,6 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
         }
         
         console.log('HTTP connection established for Shadowsocks');
-        
         await writer.write(initialData);
         writer.releaseLock();
         reader.releaseLock();
