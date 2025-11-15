@@ -12,6 +12,8 @@ Telegram交流反馈群组: https://t.me/eooceu
 
 YouTube视频部署教程：https://youtu.be/GEcKz2NoKlM
 
+Shadowsocks部署视频教程：https://youtu.be/hUPN_69Atow
+
 </div>
 
 ## 功能特性
