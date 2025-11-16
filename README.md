@@ -87,7 +87,8 @@ _acme-challenge
 ```
 
 ## shadowsocks 节点参数对照图
-<img width="1540" height="1293" alt="image" src="https://github.com/user-attachments/assets/7a7b684e-f58f-4f09-a4a9-ca54d7a21d2f" />
+节点path为SSpath变量或uuid开头，示例：/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560   带proxyip的示例：/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560&proxyip=xxxx
+<img width="1463" height="1369" alt="image" src="https://github.com/user-attachments/assets/3cd5dfb8-a6bd-43dc-82b8-10beec84ff8e" />
 
 
 ## 许可证
