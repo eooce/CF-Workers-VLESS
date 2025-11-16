@@ -1,10 +1,11 @@
-// 如需要使用环境变量,将119至224行取消注释
+// 如需要使用环境变量,将120至126行取消注释
 
 import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 节点订阅路径,不修改将使用UUID作为订阅路径
 let proxyIP = '13.230.34.30';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
 let password = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63';  // 节点UUID
+let SSpath = '';          // 路径验证，如果为空则使用UUID作为路径
 
 // CF CDN 
 let cfip = [ // 格式:优选域名:端口#备注名称、优选IP:端口#备注名称、[ipv6优选]:端口#备注名称、优选域名#备注 
@@ -122,17 +123,24 @@ export default {
             // }
             // password = env.PASSWORD || env.password || env.uuid || env.UUID || password;
             // subPath = env.SUB_PATH || env.subpath || subPath;
+            // SSpath = env.SSPATH || env.sspath || sspath;
 
             if (subPath === 'link' || subPath === '') {
                 subPath = password;
             }
+
+            if (SSpath === '') {
+                SSpath = password;
+            }
+
+            let validPath = `/${SSpath}`; 
             const servers = proxyIP.split(',').map(s => s.trim());
             proxyIP = servers[0]; 
 
             const method = 'none';
             const url = new URL(request.url);
             const pathname = url.pathname;
-            
+        
             let pathProxyIP = null;
             if (pathname.startsWith('/proxyip=')) {
                 try {
@@ -153,6 +161,10 @@ export default {
             }
 
             if (request.headers.get('Upgrade') === 'websocket') {
+                if (!pathname.toLowerCase().startsWith(validPath.toLowerCase())) {
+                    return new Response('Unauthorized', { status: 401 });
+                }
+                
                 let wsPathProxyIP = null;
                 if (pathname.startsWith('/proxyip=')) {
                     try {
@@ -208,7 +220,7 @@ export default {
                             allowInsecure: true,
                             host: currentDomain,
                             peer: currentDomain,
-                            path: "/?ed=2560"
+                            path: validPath + '/?ed=2560',
                         };
                         const v2rayPluginStr = JSON.stringify(v2rayPluginObj);
                         const encodedV2rayPlugin = btoa(v2rayPluginStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -600,7 +612,7 @@ async function forwardataudp(udpChunk, webSocket, respHeader) {
 function getHomePage(request) {
     const url = request.headers.get('Host');
     const baseUrl = `https://${url}`;
-    const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Shadowsocks Service</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#7dd3ca 0%,#a17ec4 100%);height:100vh;display:flex;align-items:center;justify-content:center;color:#333;margin:0;padding:0;overflow:hidden;}.container{background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border-radius:20px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,0.1);max-width:800px;width:95%;text-align:center;}.logo{margin-bottom:20px;}.title{font-size:2rem;margin-bottom:10px;color:#2d3748;}.subtitle{color:#718096;margin-bottom:30px;font-size:1.1rem;}.info-card{background:#f7fafc;border-radius:12px;padding:20px;margin:20px 0;text-align:left;border-left:4px solid #6ed8c9;}.info-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;}.info-item:last-child{border-bottom:none;}.label{font-weight:600;color:#4a5568;}.value{color:#2d3748;font-family:'Courier New',monospace;background:#edf2f7;padding:4px 8px;border-radius:4px;font-size:0.9rem;}.button-group{display:flex;gap:15px;justify-content:center;flex-wrap:wrap;margin:30px 0;}.btn{padding:12px 24px;background:linear-gradient(135deg,#12cd9e 0%,#a881d0 100%);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s ease;text-decoration:none;display:inline-block;}.btn:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,0.1);}.footer{margin-top:30px;color:#ef0202;font-size:0.9rem;}@media (max-width:768px){.container{padding:20px;}.button-group{flex-direction:column;align-items:center;}.btn{width:100%;max-width:300px;}}</style></head><body><div class="container"><div class="logo"><img src="https://img.icons8.com/color/96/cloudflare.png" alt="Logo" width="96" height="96"></div><h1 class="title">Cloudflare Shadowsocks Service</h1><p class="subtitle">基于 Cloudflare 的高性能 Shadowsocks 代理服务</p><div class="info-card"><div class="info-item"><span class="label">服务状态</span><span class="value">运行中</span></div><div class="info-item"><span class="label">HOST地址</span><span class="value">${url}</span></div><div class="info-item"><span class="label">UUID</span><span class="value">${subPath}</span></div><div class="info-item"><span class="label">v2rayN/shadowrocket订阅地址</span><span class="value">${baseUrl}/sub/${subPath}</span></div></div><div class="button-group"><button onclick="copySubscription()" class="btn">复制订阅链接</button><button onclick="showQRCode()" class="btn">显示订阅二维码</button></div><div class="footer"><p>注意：v2rayN导入的节点链接参数不完整,需要手动补全</p><p style="margin-top: 20px;"><a href="https://github.com/eooce/Cloudflare-proxy" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">GitHub项目</a><a href="https://check-proxyip.ssss.nyc.mn" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">Proxyip检测</a><a href="https://t.me/eooceu" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">Telegram交流群</a></p></div></div><div id="qrModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:1000;"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;text-align:center;"><h2>Shadowrocket订阅二维码</h2><img id="qrCodeImage" src="" alt="QR Code" style="max-width:300px;height:auto;padding:10px;"><p style="word-break:break-all;"><a id="qrCodeLink" href="" target="_blank"></a></p><button onclick="closeQRModal()" style="margin-top:20px;padding:10px 20px;background:#12cd9e;color:white;border:none;border-radius:5px;cursor:pointer;">关闭</button></div></div><script>function copySubscription(){const configUrl='${baseUrl}/sub/${subPath}';navigator.clipboard.writeText(configUrl).then(()=>{alert('订阅链接已复制到剪贴板!');}).catch(()=>{const textArea=document.createElement('textarea');textArea.value=configUrl;document.body.appendChild(textArea);textArea.select();document.execCommand('copy');document.body.removeChild(textArea);alert('订阅链接已复制到剪贴板!');});}function showQRCode(){const configUrl='${baseUrl}/sub/${subPath}';document.getElementById('qrCodeImage').src='';document.getElementById('qrCodeLink').href='';document.getElementById('qrCodeLink').textContent='二维码生成中...';document.getElementById('qrModal').style.display='block';const qrUrl='https://tool.oschina.net/action/qrcode/generate?data='+encodeURIComponent(configUrl)+'&output=image%2Fpng&error=L&type=0&margin=4&size=4';fetch(qrUrl).then(response=>response.blob()).then(blob=>{const imageUrl=URL.createObjectURL(blob);document.getElementById('qrCodeImage').src=imageUrl;document.getElementById('qrCodeLink').href=configUrl;document.getElementById('qrCodeLink').textContent=configUrl;}).catch(()=>{document.getElementById('qrCodeImage').src=qrUrl;document.getElementById('qrCodeLink').href=configUrl;document.getElementById('qrCodeLink').textContent=configUrl;});}function closeQRModal(){document.getElementById('qrModal').style.display='none';}</script></body></html>`;
+    const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Shadowsocks Service</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#7dd3ca 0%,#a17ec4 100%);height:100vh;display:flex;align-items:center;justify-content:center;color:#333;margin:0;padding:0;overflow:hidden;}.container{background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border-radius:20px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,0.1);max-width:800px;width:95%;text-align:center;}.logo{margin-bottom:20px;}.title{font-size:2rem;margin-bottom:10px;color:#2d3748;}.subtitle{color:#718096;margin-bottom:30px;font-size:1.1rem;}.info-card{background:#f7fafc;border-radius:12px;padding:20px;margin:20px 0;text-align:left;border-left:4px solid #6ed8c9;}.info-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;}.info-item:last-child{border-bottom:none;}.label{font-weight:600;color:#4a5568;}.value{color:#2d3748;font-family:'Courier New',monospace;background:#edf2f7;padding:4px 8px;border-radius:4px;font-size:0.9rem;}.button-group{display:flex;gap:15px;justify-content:center;flex-wrap:wrap;margin:30px 0;}.btn{padding:12px 24px;background:linear-gradient(135deg,#12cd9e 0%,#a881d0 100%);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s ease;text-decoration:none;display:inline-block;}.btn:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,0.1);}.footer{margin-top:30px;color:#ef0202;font-size:0.9rem;}@media (max-width:768px){.container{padding:20px;}.button-group{flex-direction:column;align-items:center;}.btn{width:100%;max-width:300px;}}</style></head><body><div class="container"><div class="logo"><img src="https://img.icons8.com/color/96/cloudflare.png" alt="Logo" width="96" height="96"></div><h1 class="title">Cloudflare Shadowsocks Service</h1><p class="subtitle">基于 Cloudflare 的高性能 Shadowsocks 代理服务</p><div class="info-card"><div class="info-item"><span class="label">服务状态</span><span class="value">运行中</span></div><div class="info-item"><span class="label">HOST地址</span><span class="value">${url}</span></div><div class="info-item"><span class="label">UUID</span><span class="value">${subPath}</span></div><div class="info-item"><span class="label">v2rayN/shadowrocket订阅地址</span><span class="value">${baseUrl}/sub/${subPath}</span></div></div><div class="footer"><p>注意：v2rayN导入的节点链接参数不完整,需要手动补全,节点path为：/${SSpath}/?ed=2560</p></div><div class="button-group"><button onclick="copySubscription()" class="btn">复制订阅链接</button><button onclick="showQRCode()" class="btn">显示订阅二维码</button></div><div class="footer"><p style="margin-top: 20px;"><a href="https://github.com/eooce/Cloudflare-proxy" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">GitHub项目</a><a href="https://check-proxyip.ssss.nyc.mn" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">Proxyip检测</a><a href="https://t.me/eooceu" target="_blank" style="color: #718096; text-decoration: none; margin: 0 10px;">Telegram交流群</a></p></div></div><div id="qrModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:1000;"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:10px;text-align:center;"><h2>Shadowrocket订阅二维码</h2><img id="qrCodeImage" src="" alt="QR Code" style="max-width:300px;height:auto;padding:10px;"><p style="word-break:break-all;"><a id="qrCodeLink" href="" target="_blank"></a></p><button onclick="closeQRModal()" style="margin-top:20px;padding:10px 20px;background:#12cd9e;color:white;border:none;border-radius:5px;cursor:pointer;">关闭</button></div></div><script>function copySubscription(){const configUrl='${baseUrl}/sub/${subPath}';navigator.clipboard.writeText(configUrl).then(()=>{alert('订阅链接已复制到剪贴板!');}).catch(()=>{const textArea=document.createElement('textarea');textArea.value=configUrl;document.body.appendChild(textArea);textArea.select();document.execCommand('copy');document.body.removeChild(textArea);alert('订阅链接已复制到剪贴板!');});}function showQRCode(){const configUrl='${baseUrl}/sub/${subPath}';document.getElementById('qrCodeImage').src='';document.getElementById('qrCodeLink').href='';document.getElementById('qrCodeLink').textContent='二维码生成中...';document.getElementById('qrModal').style.display='block';const qrUrl='https://tool.oschina.net/action/qrcode/generate?data='+encodeURIComponent(configUrl)+'&output=image%2Fpng&error=L&type=0&margin=4&size=4';fetch(qrUrl).then(response=>response.blob()).then(blob=>{const imageUrl=URL.createObjectURL(blob);document.getElementById('qrCodeImage').src=imageUrl;document.getElementById('qrCodeLink').href=configUrl;document.getElementById('qrCodeLink').textContent=configUrl;}).catch(()=>{document.getElementById('qrCodeImage').src=qrUrl;document.getElementById('qrCodeLink').href=configUrl;document.getElementById('qrCodeLink').textContent=configUrl;});}function closeQRModal(){document.getElementById('qrModal').style.display='none';}</script></body></html>`;
     return new Response(html, {
         status: 200,
         headers: {
