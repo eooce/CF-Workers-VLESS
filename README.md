@@ -87,7 +87,7 @@ _acme-challenge
 ```
 
 ## shadowsocks 节点参数对照图
-节点path为SSpath变量或uuid开头，示例：`/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560`   带proxyip的示例：`/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560&proxyip=xxxx`
+节点path为SSpath变量或uuid开头，示例：`/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560`   带proxyip的示例：`/5dc15e15-f285-4a9d-959b-0e4fbdd77b63/?ed=2560&proxyip=xxxx`  小火箭可去掉`?ed=2560&` 来自定义proxyip或全局出站
 <img width="1463" height="1369" alt="image" src="https://github.com/user-attachments/assets/3cd5dfb8-a6bd-43dc-82b8-10beec84ff8e" />
 
 
