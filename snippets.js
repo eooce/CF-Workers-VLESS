@@ -1,6 +1,6 @@
 import { connect } from 'cloudflare:sockets';
 
-let proxyIP = '13.230.34.30';  // proxyIP
+let proxyIP = '210.61.97.241:81';  // proxyIP
 let yourUUID = '93bf61d9-3796-44c2-9b3a-49210ece2585';  // UUID
 
 // CDN 
