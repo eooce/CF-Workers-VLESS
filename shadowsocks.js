@@ -3,7 +3,7 @@
 import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 节点订阅路径,不修改将使用UUID作为订阅路径
-let proxyIP = '13.230.34.30';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
+let proxyIP = '210.61.97.241:81';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
 let password = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63';  // 节点UUID
 let SSpath = '';          // 路径验证，如果为空则使用UUID作为验证路径
 
