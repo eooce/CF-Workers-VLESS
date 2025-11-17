@@ -123,7 +123,7 @@ export default {
             // }
             // password = env.PASSWORD || env.password || env.uuid || env.UUID || password;
             // subPath = env.SUB_PATH || env.subpath || subPath;
-            // SSpath = env.SSPATH || env.sspath || sspath;
+            // SSpath = env.SSPATH || env.sspath || SSpath;
 
             if (subPath === 'link' || subPath === '') {
                 subPath = password;
@@ -135,7 +135,7 @@ export default {
 
             let validPath = `/${SSpath}`; 
             const servers = proxyIP.split(',').map(s => s.trim());
-            proxyIP = servers[0]; 
+            proxyIP = servers[0];
 
             const method = 'none';
             const url = new URL(request.url);
