@@ -209,22 +209,10 @@ export default {
                         } else {
                             host = cdnItem;
                         }
-                        
-                        const ssConfig = `${method}:${password}@${host}:${port}`;
+                        const ssConfig = `${method}:${password}`;
                         const ssNodeName = nodeName ? `${nodeName}-${ssHeader}` : `${ssHeader}`;
                         const encodedConfig = btoa(ssConfig);
-                        const v2rayPluginObj = {
-                            tls: true,
-                            mux: false,
-                            mode: "websocket",
-                            allowInsecure: true,
-                            host: currentDomain,
-                            peer: currentDomain,
-                            path: validPath + '/?ed=2560',
-                        };
-                        const v2rayPluginStr = JSON.stringify(v2rayPluginObj);
-                        const encodedV2rayPlugin = btoa(v2rayPluginStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-                        return `${ssHeader}://${encodedConfig}?v2ray-plugin=${encodedV2rayPlugin}#${ssNodeName}`;
+                        return `${ssHeader}://${encodedConfig}@${host}:${port}?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${currentDomain};path%3D${validPath}/?ed%3D2560;tls;sni%3D${currentDomain};skip-cert-verify%3Dtrue;mux%3D0#${ssNodeName}`;
                     });
                     
                     const linksText = ssLinks.join('\n');
