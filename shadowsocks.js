@@ -459,13 +459,11 @@ function getSimplePage(request) {
 export default {
     async fetch(request,env) {
         try {
-            // if (env.PROXYIP || env.proxyip || env.proxyIP) {
-            //     const servers = (env.PROXYIP || env.proxyip || env.proxyIP).split(',').map(s => s.trim());
-            //     //proxyIP = servers[0]; 
-            // }
-            // password = env.PASSWORD || env.password || env.uuid || env.UUID || password;
-            // subPath = env.SUB_PATH || env.subpath || subPath;
-            // SSpath = env.SSPATH || env.sspath || SSpath;
+            const servers = (env.PROXYIP || env.proxyip || env.proxyIP || proxyIP).split(',').map(s => s.trim()) || proxyIP;
+            proxyIP = servers[0]; 
+            password = env.PASSWORD || env.password || env.uuid || env.UUID || password;
+            subPath = env.SUB_PATH || env.subpath || subPath;
+            SSpath = env.SSPATH || env.sspath || SSpath;
             if (subPath === 'link' || subPath === '') { subPath = password; }
             if (SSpath === '') { SSpath = password; }
             let validPath = `/${SSpath}`; 
