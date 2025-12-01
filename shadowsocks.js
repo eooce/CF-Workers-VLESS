@@ -2,15 +2,18 @@
 import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 节点订阅路径,不修改将使用UUID作为订阅路径
-let proxyIP = '210.61.97.241:81';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
-let password = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63';  // 节点UUID
+// 默认 ProxyIP，如果 KV 中没有设置将使用此值
+let proxyIP = 'proxyip.cmliussss.net';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
+let password = '847292be-be50-4e70-b0e2-e1b1c9c488a1';  // 节点UUID
 let SSpath = '';          // 路径验证，为空则使用UUID作为验证路径
 
-// CF-CDN 
-let cfip = [ // 格式:优选域名:端口#备注名称、优选IP:端口#备注名称、[ipv6优选]:端口#备注名称、优选域名#备注 
+// 全局变量作为内存缓存
+let cfip = [ 
     'mfa.gov.ua#SG', 'saas.sin.fan#JP', 'store.ubi.com#SG','cf.130519.xyz#KR','cf.008500.xyz#HK', 
     'cf.090227.xyz#SG', 'cf.877774.xyz#HK','cdns.doon.eu.org#JP','sub.danfeng.eu.org#TW','cf.zhetengsha.eu.org#HK'
-];  // 感谢各位大佬维护的优选域名
+]; 
+let cfip_api = []; 
+let last_save_time = 0; // 记录最后一次保存的时间
 
 function closeSocketQuietly(socket) {
     try { 
@@ -255,6 +258,7 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
         }
         connectRequest += `User-Agent: Mozilla/5.0\r\n`;
         connectRequest += `Connection: keep-alive\r\n`;
+        connectRequest += `Connection: keep-alive\r\n`;
         connectRequest += '\r\n';
         await writer.write(new TextEncoder().encode(connectRequest));
         let responseBuffer = new Uint8Array(0);
@@ -456,24 +460,351 @@ function getSimplePage(request) {
     });
 }
 
+function getAdminPage(password) {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Shadowsocks 管理面板</title>
+        <style>
+            :root {
+                --primary: #6366f1;
+                --secondary: #a855f7;
+                --bg-grad: linear-gradient(135deg, #7dd3ca 0%, #a17ec4 100%);
+                --glass: rgba(255, 255, 255, 0.95);
+            }
+            body {
+                font-family: 'Segoe UI', Roboto, sans-serif;
+                background: var(--bg-grad);
+                min-height: 100vh;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                padding: 20px;
+                color: #333;
+            }
+            .container {
+                background: var(--glass);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                width: 100%;
+                max-width: 900px;
+                padding: 30px;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+                height: fit-content;
+                position: relative;
+            }
+            .back-link {
+                position: absolute;
+                top: 20px;
+                left: 20px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                text-decoration: none;
+                color: #4b5563;
+                font-weight: 600;
+                padding: 8px 16px;
+                background: rgba(255,255,255,0.6);
+                border-radius: 20px;
+                transition: all 0.2s;
+                font-size: 0.9rem;
+            }
+            .back-link:hover {
+                background: #fff;
+                color: #6366f1;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            }
+            h1 {
+                margin: 10px 0;
+                text-align: center;
+                background: -webkit-linear-gradient(45deg, var(--primary), var(--secondary));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                font-size: 2.2rem;
+            }
+            .card {
+                background: #fff;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                border: 1px solid #e5e7eb;
+            }
+            .card h2 {
+                margin-top: 0;
+                color: #4b5563;
+                font-size: 1.2rem;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            textarea, input[type="text"], select {
+                width: 100%;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 12px;
+                font-family: monospace;
+                font-size: 0.9rem;
+                transition: border-color 0.2s;
+                box-sizing: border-box;
+            }
+            textarea {
+                height: 150px;
+                resize: vertical;
+            }
+            select {
+                margin-bottom: 10px;
+                background-color: white;
+            }
+            textarea:focus, input[type="text"]:focus, select:focus {
+                outline: none;
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            }
+            .btn {
+                background: linear-gradient(90deg, var(--primary), var(--secondary));
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.1s, opacity 0.2s;
+                align-self: center;
+                min-width: 150px;
+            }
+            .btn:hover {
+                opacity: 0.9;
+                transform: translateY(-1px);
+            }
+            .btn:active {
+                transform: translateY(1px);
+            }
+            .toast {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transform: translateY(100px);
+                transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+                z-index: 100;
+            }
+            .toast.show {
+                transform: translateY(0);
+            }
+            .help-text {
+                font-size: 0.85rem;
+                color: #6b7280;
+                margin-bottom: 8px;
+            }
+            @media (max-width: 700px) {
+                .back-link {
+                    position: static;
+                    margin-bottom: 20px;
+                    align-self: flex-start;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <a href="/${password}" class="back-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                返回订阅中心
+            </a>
+            <h1>配置管理面板</h1>
+            
+            <div class="card">
+                <h2>📝 优选 IP 配置 (Manual IPs)</h2>
+                <div class="help-text">批量修改、添加、删除。每行一个，格式：IP:端口#备注 (例如: 1.2.3.4:443#US)</div>
+                <textarea id="cfip" placeholder="正在加载配置..."></textarea>
+            </div>
+
+            <div class="card">
+                <h2>🔗 优选 IP API 配置 (API URLs)</h2>
+                <div class="help-text">批量修改。每行一个 API 地址，支持备注。<br>格式1: https://api.com/ips (使用API原备注或IP)<br>格式2: https://api.com/ips#美国 (强制使用"美国")</div>
+                <textarea id="cfip_api" placeholder="正在加载配置..."></textarea>
+            </div>
+
+            <div class="card">
+                <h2>🔄 Cloudflare CDN 访问设置</h2>
+                <div class="help-text">选择反代模式并填写地址。留空则使用默认。</div>
+                <select id="proxyMode" onchange="updatePlaceholder()">
+                    <option value="PROXYIP">PROXYIP (默认)</option>
+                    <option value="SOCKS5">SOCKS5</option>
+                    <option value="HTTP">HTTP</option>
+                </select>
+                <input type="text" id="proxyIP" placeholder="例如: proxyip.cmliussss.net 或 1.2.3.4:443#HK">
+            </div>
+
+            <button class="btn" onclick="saveData()">保存配置</button>
+        </div>
+        <div id="toast" class="toast">保存成功！</div>
+
+        <script>
+            const toast = document.getElementById('toast');
+            const proxyMode = document.getElementById('proxyMode');
+            const proxyInput = document.getElementById('proxyIP');
+
+            function showToast(msg, isError = false) {
+                toast.textContent = msg || '保存成功！';
+                toast.style.background = isError ? '#ef4444' : '#10b981';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+
+            function updatePlaceholder() {
+                const mode = proxyMode.value;
+                if (mode === 'PROXYIP') {
+                    proxyInput.placeholder = '例如: proxyip.cmliussss.net 或 1.2.3.4:443#HK';
+                } else if (mode === 'SOCKS5') {
+                    proxyInput.placeholder = '例如: user:pass@127.0.0.1:1080 或 127.0.0.1:1080';
+                } else if (mode === 'HTTP') {
+                    proxyInput.placeholder = '例如: user:pass@127.0.0.1:8080 或 127.0.0.1:8080';
+                }
+                
+                if ((mode === 'SOCKS5' || mode === 'HTTP') && proxyInput.value === 'proxyip.cmliussss.net') {
+                    proxyInput.value = '';
+                }
+            }
+
+            async function loadData() {
+                try {
+                    const resp = await fetch('admin/get');
+                    if (!resp.ok) throw new Error('网络错误');
+                    const data = await resp.json();
+                    document.getElementById('cfip').value = data.cfip.join('\\n');
+                    document.getElementById('cfip_api').value = data.cfip_api.join('\\n');
+                    
+                    // 解析 proxyIP 以设置下拉框和输入框
+                    let pIp = data.proxyIP || '';
+                    if (pIp.startsWith('socks5://') || pIp.startsWith('socks://')) {
+                        proxyMode.value = 'SOCKS5';
+                        proxyInput.value = pIp.replace(/^socks5?:\\/\\//, '');
+                    } else if (pIp.startsWith('http://') || pIp.startsWith('https://')) {
+                        proxyMode.value = 'HTTP';
+                        proxyInput.value = pIp.replace(/^https?:\\/\\//, '');
+                    } else {
+                        proxyMode.value = 'PROXYIP';
+                        proxyInput.value = pIp;
+                    }
+                    updatePlaceholder();
+                } catch (e) {
+                    showToast('加载失败: ' + e.message, true);
+                }
+            }
+
+            async function saveData() {
+                const cfip = document.getElementById('cfip').value.split('\\n').map(x => x.trim()).filter(x => x);
+                const cfip_api = document.getElementById('cfip_api').value.split('\\n').map(x => x.trim()).filter(x => x);
+                
+                // 组合 proxyIP
+                let rawProxy = proxyInput.value.trim();
+                let finalProxyIP = '';
+                const mode = proxyMode.value;
+                
+                if (rawProxy) {
+                    if (mode === 'SOCKS5' && !rawProxy.startsWith('socks')) {
+                        finalProxyIP = 'socks5://' + rawProxy;
+                    } else if (mode === 'HTTP' && !rawProxy.startsWith('http')) {
+                        finalProxyIP = 'http://' + rawProxy;
+                    } else {
+                        finalProxyIP = rawProxy;
+                    }
+                }
+
+                try {
+                    const resp = await fetch('admin/save', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({cfip, cfip_api, proxyIP: finalProxyIP})
+                    });
+                    if (resp.ok) showToast();
+                    else showToast('保存失败', true);
+                } catch (e) {
+                    showToast('保存错误: ' + e.message, true);
+                }
+            }
+
+            loadData();
+        </script>
+    </body>
+    </html>
+    `;
+    return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8' }
+    });
+}
+
 export default {
     async fetch(request,env) {
         try {
-            // if (env.PROXYIP || env.proxyip || env.proxyIP) {
-            //     const servers = (env.PROXYIP || env.proxyip || env.proxyIP).split(',').map(s => s.trim());
-            //     //proxyIP = servers[0]; 
-            // }
-            // password = env.PASSWORD || env.password || env.uuid || env.UUID || password;
-            // subPath = env.SUB_PATH || env.subpath || subPath;
-            // SSpath = env.SSPATH || env.sspath || SSpath;
+            // KV Loading with Memory Cache Override Optimization
+            if (env.KV) {
+                const NOW = Date.now();
+                if (NOW - last_save_time > 60000) {
+                    const kvIp = await env.KV.get('cfip');
+                    if (kvIp) {
+                        try { cfip = JSON.parse(kvIp); } catch(e) {}
+                    }
+                    const kvApi = await env.KV.get('cfip_api');
+                    if (kvApi) {
+                        try { cfip_api = JSON.parse(kvApi); } catch(e) {}
+                    }
+                    const kvProxy = await env.KV.get('proxyIP');
+                    if (kvProxy !== null) {
+                         proxyIP = kvProxy;
+                    }
+                } else {
+                    // console.log('Using memory cache for instant update');
+                }
+            }
+
             if (subPath === 'link' || subPath === '') { subPath = password; }
             if (SSpath === '') { SSpath = password; }
             let validPath = `/${SSpath}`; 
             const servers = proxyIP.split(',').map(s => s.trim());
-            proxyIP = servers[0];
+            proxyIP = servers[0]; // 确保 proxyIP 始终是有效的字符串
             const method = 'none';
             const url = new URL(request.url);
             const pathname = url.pathname;
+
+            // Admin Panel Routes
+            if (pathname === `/${password}/admin`) {
+                return getAdminPage(password);
+            }
+            if (pathname === `/${password}/admin/get`) {
+                return new Response(JSON.stringify({ cfip, cfip_api, proxyIP }), { headers: {'Content-Type': 'application/json'} });
+            }
+            if (pathname === `/${password}/admin/save` && request.method === 'POST') {
+                if (!env.KV) return new Response('KV not configured', { status: 500 });
+                const body = await request.json();
+                
+                // 1. Update Memory (Instant)
+                cfip = body.cfip;
+                cfip_api = body.cfip_api;
+                proxyIP = body.proxyIP; // Update proxyIP in memory
+                last_save_time = Date.now();
+
+                // 2. Update KV (Eventual)
+                await env.KV.put('cfip', JSON.stringify(cfip));
+                await env.KV.put('cfip_api', JSON.stringify(cfip_api));
+                await env.KV.put('proxyIP', proxyIP);
+                
+                return new Response('Saved', { status: 200 });
+            }
+
             let pathProxyIP = null;
             if (pathname.startsWith('/proxyip=')) {
                 try {
@@ -518,21 +849,80 @@ export default {
                     const vUrl = `${baseUrl}/sub/${subPath}`;
                     const qxConfig = `shadowsocks=mfa.gov.ua:443,method=none,password=${password},obfs=wss,obfs-host=${currentDomain},obfs-uri=/${SSpath}/?ed=2560,fast-open=true, udp-relay=true,tag=SS`;
                     const claLink = `https://sub.ssss.xx.kg/${typelink}?config=${vUrl}`;
-                    const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Shadowsocks 订阅中心</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#7dd3ca 0%,#a17ec4 100%);color:#333}.container{height:1080px;max-width:800px;margin:0 auto}.header{margin-bottom:30px}.header h1{text-align:center;color:#007fff;border-bottom:2px solid #3498db;padding-bottom:10px}.section{margin-bottom:0px}.section h2{color:#b33ce7;margin-bottom:5px;font-size:1.1em}.link-box{background:#f0fffa;border:1px solid #ddd;border-radius:8px;padding:15px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:flex-start}.lintext{flex:1;word-break:break-all;font-family:monospace;color:#2980b9;margin:10px;}.clesh-config{flex:1;word-break:break-all;font-family:monospace;color:#2980b9;margin:10px;white-space:pre-wrap;background:#f8f9fa;padding:10px;border-radius:4px;border:1px solid #e9ecef}.button-group{display:flex;gap:10px;flex-shrink:0}.copy-btn{background:#27aea2;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;transition:all 0.3s ease}.copy-btn:hover{background:#219652}.copy-btn.copied{background:#0e981d}.qrcode-btn{background:#e67e22;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer}.qrcode-btn:hover{background:#d35400}.footer{text-align:center;color:#7f8c8d;border-top:1px solid #e1d9fb;}.footer a{color:#c311ffs;text-decoration:none;margin:0 15px}.footer a:hover{text-decoration:underline}#qrModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000}.modal-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;text-align:center;max-width:90%}.modal-content h3{margin-bottom:15px;color:#2c3e50}.modal-content img{max-width:300px;height:auto;margin:10px 0}.close-btn{background:#e74c3c;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;margin-top:15px}.close-btn:hover{background:#c0392b}@media (max-width:600px){.link-box{flex-direction:column}.button-group{margin-top:10px;align-self:flex-end}}</style></head><body><div class="container"><div class="header"><h1>Shadowsocks 订阅中心</h1></div><div class="section"><h2>V2rayN(7.16.4)/Nekobox/小火箭/v2rayng(安卓1.8.25)/kraing(1.2.8.1100以上) 订阅链接</h2><div class="link-box"><div class="lintext">${vUrl}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${vUrl}')">复制</button><button class="qrcode-btn" onclick="showQRCode('${vUrl}','V2rayN(7.16.4)/nekobox/小火箭/V2rayng(安卓1.8.25) 订阅链接')">二维码</button></div></div></div><div class="section"><h2>${typelink}订阅链接</h2><div class="link-box"><div class="lintext">${claLink}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${claLink}')">复制</button><button class="qrcode-btn" onclick="showQRCode('${claLink}','${typelink} 订阅链接')">二维码</button></div></div></div><div class="section"><h2>Quantumult X节点配置</h2><div class="link-box"><div class="lintext">${qxConfig}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${qxConfig}')">复制</button></div></div></div><div class="section"><h2>客户端下载链接</h2><div class="link-box"><div class="lintext">v2rayN (Windows): <a href="https://github.com/2dust/v2rayN/releases/tag/7.16.4" target="_blank">7.16.4版本下载</a><br>v2rayNG (Android): <a href="https://github.com/2dust/v2rayNG/releases/tag/1.8.25" target="_blank">1.8.25版本下载</a><br>Karing (测试版): <a href="https://github.com/KaringX/karing/releases/tag/v1.2.8.1101" target="_blank">1.2.8.1101版本下载</a></div></div></div><div class="footer"><p><a href="https://github.com/eooce/CF-workers-and-snip-VLESS" target="_blank">GitHub</a> | <a href="https://check-proxyip.ssss.nyc.mn" target="_blank">Proxyip检测</a> | <a href="https://t.me/+vtZ8GLzjksA4OTVl" target="_blank">TG交流群</a></p></div></div><div id="qrModal"><div class="modal-content"><h3 id="modalTitle">二维码</h3><img id="qrImage" src="" alt="QR Code"><p id="qrText" style="word-break:break-all;margin:10px 0"></p><button class="close-btn" onclick="closeQRModal()">关闭</button></div></div><script>function copyToClipboard(button,text){const originalText=button.textContent;const decodedText=text.replace(/\\\\n/g,'\\n').replace(/&quot;/g,'"');navigator.clipboard.writeText(decodedText).then(()=>{button.textContent='已复制';button.classList.add('copied');setTimeout(()=>{button.textContent=originalText;button.classList.remove('copied')},2000)}).catch(()=>{const e=document.createElement('textarea');e.value=decodedText;document.body.appendChild(e);e.select();document.execCommand('copy');document.body.removeChild(e);button.textContent='已复制';button.classList.add('copied');setTimeout(()=>{button.textContent=originalText;button.classList.remove('copied')},2000)})}function showQRCode(text,title){document.getElementById('modalTitle').textContent=title;document.getElementById('qrText').textContent=text;const e='https://tool.oschina.net/action/qrcode/generate?data='+encodeURIComponent(text)+'&output=image%2Fpng&error=L&type=0&margin=4&size=4';fetch(e).then(t=>t.blob()).then(t=>{const n=URL.createObjectURL(t);document.getElementById('qrImage').src=n}).catch(()=>{document.getElementById('qrImage').src=e});document.getElementById('qrModal').style.display='block'}function closeQRModal(){document.getElementById('qrModal').style.display='none'}document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.copy-btn[data-config]').forEach(btn=>{btn.addEventListener('click',function(){copyToClipboard(this,this.getAttribute('data-config'))})})});</script></body></html>`;
+                    const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Shadowsocks 订阅中心</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#7dd3ca 0%,#a17ec4 100%);color:#333}.container{height:1080px;max-width:800px;margin:0 auto}.header{margin-bottom:30px}.header h1{text-align:center;color:#007fff;border-bottom:2px solid #3498db;padding-bottom:10px}.admin-btn{display:inline-block;margin-top:10px;padding:8px 20px;background:linear-gradient(90deg,#6366f1,#a855f7);color:white;border-radius:20px;text-decoration:none;font-size:0.95rem;box-shadow:0 4px 6px rgba(0,0,0,0.1);transition:transform 0.2s}.admin-btn:hover{transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.15)}.section{margin-bottom:0px}.section h2{color:#b33ce7;margin-bottom:5px;font-size:1.1em}.link-box{background:#f0fffa;border:1px solid #ddd;border-radius:8px;padding:15px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:flex-start}.lintext{flex:1;word-break:break-all;font-family:monospace;color:#2980b9;margin:10px;}.clesh-config{flex:1;word-break:break-all;font-family:monospace;color:#2980b9;margin:10px;white-space:pre-wrap;background:#f8f9fa;padding:10px;border-radius:4px;border:1px solid #e9ecef}.button-group{display:flex;gap:10px;flex-shrink:0}.copy-btn{background:#27aea2;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;transition:all 0.3s ease}.copy-btn:hover{background:#219652}.copy-btn.copied{background:#0e981d}.qrcode-btn{background:#e67e22;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer}.qrcode-btn:hover{background:#d35400}.footer{text-align:center;color:#7f8c8d;border-top:1px solid #e1d9fb;}.footer a{color:#c311ffs;text-decoration:none;margin:0 15px}.footer a:hover{text-decoration:underline}#qrModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000}.modal-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;text-align:center;max-width:90%}.modal-content h3{margin-bottom:15px;color:#2c3e50}.modal-content img{max-width:300px;height:auto;margin:10px 0}.close-btn{background:#e74c3c;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;margin-top:15px}.close-btn:hover{background:#c0392b}@media (max-width:600px){.link-box{flex-direction:column}.button-group{margin-top:10px;align-self:flex-end}}</style></head><body><div class="container"><div class="header"><h1>Shadowsocks 订阅中心</h1><a href="/${password}/admin" class="admin-btn">⚙️ 管理面板</a></div><div class="section"><h2>V2rayN(7.16.4)/Nekobox/小火箭/v2rayng(安卓1.8.25)/kraing(1.2.8.1100以上) 订阅链接</h2><div class="link-box"><div class="lintext">${vUrl}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${vUrl}')">复制</button><button class="qrcode-btn" onclick="showQRCode('${vUrl}','V2rayN(7.16.4)/nekobox/小火箭/V2rayng(安卓1.8.25) 订阅链接')">二维码</button></div></div></div><div class="section"><h2>${typelink}订阅链接</h2><div class="link-box"><div class="lintext">${claLink}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${claLink}')">复制</button><button class="qrcode-btn" onclick="showQRCode('${claLink}','${typelink} 订阅链接')">二维码</button></div></div></div><div class="section"><h2>Quantumult X节点配置</h2><div class="link-box"><div class="lintext">${qxConfig}</div><div class="button-group"><button class="copy-btn" onclick="copyToClipboard(this,'${qxConfig}')">复制</button></div></div></div><div class="section"><h2>客户端下载链接</h2><div class="link-box"><div class="lintext">v2rayN (Windows): <a href="https://github.com/2dust/v2rayN/releases/tag/7.16.4" target="_blank">7.16.4版本下载</a><br>v2rayNG (Android): <a href="https://github.com/2dust/v2rayNG/releases/tag/1.8.25" target="_blank">1.8.25版本下载</a><br>Karing (测试版): <a href="https://github.com/KaringX/karing/releases/tag/v1.2.8.1101" target="_blank">1.2.8.1101版本下载</a></div></div></div><div class="footer"><p><a href="https://github.com/eooce/CF-workers-and-snip-VLESS" target="_blank">GitHub</a> | <a href="https://check-proxyip.ssss.nyc.mn" target="_blank">Proxyip检测</a> | <a href="https://t.me/+vtZ8GLzjksA4OTVl" target="_blank">TG交流群</a></p></div></div><div id="qrModal"><div class="modal-content"><h3 id="modalTitle">二维码</h3><img id="qrImage" src="" alt="QR Code"><p id="qrText" style="word-break:break-all;margin:10px 0"></p><button class="close-btn" onclick="closeQRModal()">关闭</button></div></div><script>function copyToClipboard(button,text){const originalText=button.textContent;const decodedText=text.replace(/\\\\n/g,'\\n').replace(/&quot;/g,'"');navigator.clipboard.writeText(decodedText).then(()=>{button.textContent='已复制';button.classList.add('copied');setTimeout(()=>{button.textContent=originalText;button.classList.remove('copied')},2000)}).catch(()=>{const e=document.createElement('textarea');e.value=decodedText;document.body.appendChild(e);e.select();document.execCommand('copy');document.body.removeChild(e);button.textContent='已复制';button.classList.add('copied');setTimeout(()=>{button.textContent=originalText;button.classList.remove('copied')},2000)})}function showQRCode(text,title){document.getElementById('modalTitle').textContent=title;document.getElementById('qrText').textContent=text;const e='https://tool.oschina.net/action/qrcode/generate?data='+encodeURIComponent(text)+'&output=image%2Fpng&error=L&type=0&margin=4&size=4';fetch(e).then(t=>t.blob()).then(t=>{const n=URL.createObjectURL(t);document.getElementById('qrImage').src=n}).catch(()=>{document.getElementById('qrImage').src=e});document.getElementById('qrModal').style.display='block'}function closeQRModal(){document.getElementById('qrModal').style.display='none'}document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.copy-btn[data-config]').forEach(btn=>{btn.addEventListener('click',function(){copyToClipboard(this,this.getAttribute('data-config'))})})});</script></body></html>`;
                     return new Response(html, {
                         status: 200,
                         headers: {
                             'Content-Type': 'text/html;charset=utf-8',
                             'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache',
+                            'Expires': '0',
                         },
                     });
                 }
                 // sub path /sub/UUID
                 if (url.pathname.toLowerCase() === `/sub/${subPath.toLowerCase()}` || url.pathname.toLowerCase() === `/sub/${subPath.toLowerCase()}/`) {
+                    // 合并优选IP和API获取的IP
+                    let finalCFIP = [...cfip];
+                    
+                    // 尝试从API获取更多IP (带2秒超时)
+                    if (cfip_api.length > 0) {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 2000);
+                        const apiPromises = cfip_api.map(line => {
+                            const parts = line.split('#');
+                            const apiUrl = parts[0].trim();
+                            const apiRemark = parts[1] ? parts[1].trim() : '';
+
+                            if (!apiUrl) return Promise.resolve([]);
+
+                            return fetch(apiUrl, { signal: controller.signal })
+                                .then(r => r.ok ? r.text() : '')
+                                .then(text => text.split('\n'))
+                                .then(lines => lines.map(ipLine => {
+                                    const cleanLine = ipLine.trim();
+                                    if (!cleanLine) return null;
+                                    
+                                    // 解析API返回的单行内容，可能是 "IP" 或 "IP#原备注"
+                                    let ip = cleanLine;
+                                    let originalRemark = '';
+                                    if (cleanLine.includes('#')) {
+                                        const ipParts = cleanLine.split('#');
+                                        ip = ipParts[0].trim();
+                                        originalRemark = ipParts[1].trim();
+                                    }
+                                    
+                                    // 逻辑：如果API配置了备注，强制使用该备注；
+                                    // 否则，如果原IP带备注，使用原备注；
+                                    // 否则，不带备注(后续会显示为IP)
+                                    if (apiRemark) {
+                                        return `${ip}#${apiRemark}`;
+                                    } else if (originalRemark) {
+                                        return `${ip}#${originalRemark}`;
+                                    } else {
+                                        return ip; 
+                                    }
+                                }).filter(x => x))
+                                .catch(() => []);
+                        });
+                        
+                        try {
+                            const apiResults = await Promise.all(apiPromises);
+                            apiResults.forEach(ips => {
+                                if(Array.isArray(ips)) {
+                                    finalCFIP.push(...ips);
+                                }
+                            });
+                        } catch(e) {}
+                        clearTimeout(timeoutId);
+                    }
+
                     const currentDomain = url.hostname;
                     const ssHeader = 's'+'s';
-                    const ssLinks = cfip.map(cdnItem => {
+                    const ssLinks = finalCFIP.map(cdnItem => {
                         let host, port = 443, nodeName = '';
+                        const randomPorts = [443, 2053, 2083, 2087, 2096, 8443];
+
                         if (cdnItem.includes('#')) {
                             const parts = cdnItem.split('#');
                             cdnItem = parts[0];
@@ -542,16 +932,26 @@ export default {
                             const ipv6End = cdnItem.indexOf(']:');
                             host = cdnItem.substring(0, ipv6End + 1); 
                             const portStr = cdnItem.substring(ipv6End + 2); 
-                            port = parseInt(portStr) || 443;
+                            port = parseInt(portStr);
+                            if (isNaN(port)) {
+                                port = randomPorts[Math.floor(Math.random() * randomPorts.length)];
+                            }
                         } else if (cdnItem.includes(':')) {
                             const parts = cdnItem.split(':');
                             host = parts[0];
-                            port = parseInt(parts[1]) || 443;
+                            const portStr = parts[1];
+                            port = parseInt(portStr);
+                            if (isNaN(port)) {
+                                port = randomPorts[Math.floor(Math.random() * randomPorts.length)];
+                            }
                         } else {
                             host = cdnItem;
+                            port = randomPorts[Math.floor(Math.random() * randomPorts.length)];
                         }
+                        
                         const ssConfig = `${method}:${password}`;
-                        const ssNodeName = nodeName ? `${nodeName}-${ssHeader}` : `${ssHeader}`;
+                        // 修改处：如果有备注显示备注，没有备注显示IP/Host
+                        const ssNodeName = nodeName ? nodeName : host;
                         const encodedConfig = btoa(ssConfig);
                         return `${ssHeader}://${encodedConfig}@${host}:${port}?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${currentDomain};path%3D${validPath}/?ed%3D2560;tls;sni%3D${currentDomain};skip-cert-verify%3Dtrue;mux%3D0#${ssNodeName}`;
                     });
@@ -561,6 +961,8 @@ export default {
                         headers: { 
                             'Content-Type': 'text/plain; charset=utf-8',
                             'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                            'Pragma': 'no-cache',
+                            'Expires': '0',
                         },
                     });
                 }
