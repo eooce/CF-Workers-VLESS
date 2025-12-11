@@ -3,13 +3,13 @@ import { connect } from 'cloudflare:sockets';
 
 let subPath = 'link';     // 节点订阅路径,不修改将使用UUID作为订阅路径
 let proxyIP = '210.61.97.241:81';  // proxyIP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
-let password = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63';  // 节点UUID
+let password = '3977c25e-db24-43f4-ba14-c16e85a99eea';  // 节点UUID
 let SSpath = '';          // 路径验证，为空则使用UUID作为验证路径
 
 // CF-CDN 
 let cfip = [ // 格式:优选域名:端口#备注名称、优选IP:端口#备注名称、[ipv6优选]:端口#备注名称、优选域名#备注 
-    'mfa.gov.ua#SG', 'saas.sin.fan#JP', 'store.ubi.com#SG','cf.130519.xyz#KR','cf.008500.xyz#HK', 
-    'cf.090227.xyz#SG', 'cf.877774.xyz#HK','cdns.doon.eu.org#JP','sub.danfeng.eu.org#TW','cf.zhetengsha.eu.org#HK'
+    '144.34.228.107:443#LAX', 
+    
 ];  // 感谢各位大佬维护的优选域名
 
 function closeSocketQuietly(socket) {
